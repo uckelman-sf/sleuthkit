@@ -101,5 +101,5 @@ tsk_img_read(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_off,
     return -1;
   }
 
-  return img_cache_read(a_img_info, a_off, a_buf, a_len);
+  return sf_img_read(a_img_info, a_off, a_buf, a_len);
 }

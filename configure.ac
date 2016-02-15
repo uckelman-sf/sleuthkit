@@ -177,6 +177,12 @@ AS_IF(
 dnl Check if we should link with libvslvm
 TSK_OPT_DEP_CHECK([libvslvm], [LVM], [libvslvm], [libvslvm.h], [vslvm], [libvslvm_get_version])
 
+dnl check for libcaches
+TSK_PKG_CHECK_MODULES([CACHES], [], [caches], [
+  CFLAGS="$CFLAGS $CACHES_CFLAGS"
+  LIBS="$LIBS $CACHES_LIBS"
+], [AC_MSG_ERROR([Failed to find libcaches.])])
+
 dnl check for user online input
 AC_ARG_ENABLE([offline],
     [ AS_HELP_STRING([--enable-offline],[Turn on offline mode])],

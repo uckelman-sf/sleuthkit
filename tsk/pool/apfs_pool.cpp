@@ -15,6 +15,8 @@
 #include "../fs/tsk_fs_i.h"
 #include "../img/img_cache.h"
 
+#include "../img/img_cache.h"
+
 #include <stdexcept>
 
 APFSPool::APFSPool(std::vector<img_t>&& imgs, apfs_block_num nx_block_num)
@@ -148,7 +150,6 @@ void APFSPool::clear_cache() noexcept {
   _block_cache.clear();
 
   tsk_take_lock(&(_img->cache_lock));
-
-  img_cache_free(_img);
+  sf_img_cache_free(_img);
   tsk_release_lock(&(_img->cache_lock));
 }

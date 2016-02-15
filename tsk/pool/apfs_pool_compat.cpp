@@ -337,7 +337,7 @@ TSK_IMG_INFO * APFSPoolCompat::getImageInfo(const TSK_POOL_INFO *pool_info, TSK_
     img_info->images = origInfo->images;
 
     tsk_init_lock(&(img_info->cache_lock));
-    img_cache_init(img_info);
+    sf_img_cache_init(img_info);
 
     return img_info;
 

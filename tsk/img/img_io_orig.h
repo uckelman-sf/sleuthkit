@@ -7,16 +7,11 @@ extern "C" {
 #endif
 
 ssize_t
-sf_img_read(
+tsk_img_read_orig(
   TSK_IMG_INFO* a_img_info,
   TSK_OFF_T a_off,
   char *a_buf,
   size_t a_len);
-
-
-void sf_img_cache_init(TSK_IMG_INFO* a_img_info);
-
-void sf_img_cache_free(TSK_IMG_INFO* a_img_info);
 
 #ifdef __cplusplus
 }
