@@ -18,8 +18,6 @@ AC_CONFIG_SRCDIR([tsk/base/tsk_base.h])
 AC_CONFIG_HEADERS([tsk/tsk_config.h])
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE([foreign])
-AM_PATH_CPPUNIT(1.12.1)
-AM_CONDITIONAL([CPPUNIT],[test "x$no_cppunit" = x])
 AM_PROG_LIBTOOL
 AM_MAINTAINER_MODE
 AC_CONFIG_MACRO_DIR([m4])
@@ -236,6 +234,16 @@ AS_IF([test "x$with_libewf" != "xno"],
 )
 AS_IF([test "x$ac_cv_lib_ewf_libewf_get_version" = "xyes"], [ax_libewf=yes], [ax_libewf=no])
 
+AC_CHECK_PROG([PKGCONFIG], [pkg-config], [yes], [no])
+if test "x$PKGCONFIG" = "xyes"; then
+  AX_PKG_CHECK_MODULES([CPPUNIT], [], [cppunit >= 1.12.1], [ac_cv_cppunit=yes], [ac_cv_cppunit=no])
+else
+  AM_PATH_CPPUNIT(1.12.1)
+  AS_IF([test "x$no_cppunit" = x], [ac_cv_cppunit=yes], [ac_cv_cppunit=no])
+fi
+
+AM_CONDITIONAL([HAVE_CPPUNIT],[test "x$no_cppunit" = x])
+
 dnl Test for the various java things that we need for bindings
 AS_IF([test "x$enable_java" != "xno"], [
     dnl javac is needed to compile the JAR file
@@ -313,6 +321,9 @@ dnl Dependencies for fiwalk
 AC_CHECK_FUNCS([getline])
 AC_SEARCH_LIBS(regexec, [regex], , AC_MSG_ERROR([missing regex]))
 
+AC_SUBST(AM_CFLAGS, '')
+AC_SUBST(AM_CXXFLAGS, '')
+
 AC_CONFIG_FILES([
     Makefile
     tsk/Makefile
@@ -340,7 +351,8 @@ AC_CONFIG_FILES([
     bindings/java/Makefile 
     bindings/java/jni/Makefile
     unit_tests/Makefile
-    unit_tests/base/Makefile])
+    unit_tests/base/Makefile
+    unit_tests/img/Makefile])
 
 AC_OUTPUT
 
@@ -352,6 +364,7 @@ Building:
    zlib support:                          $ax_zlib
 
 Features:
+   cppunit support:                       $ac_cv_cppunit
    Java/JNI support:                      $ax_java_support
    Multithreading:                        $ax_multithread
 ]);
