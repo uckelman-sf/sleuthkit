@@ -53,7 +53,7 @@ public class BlackboardArtifact implements Content {
 	private final int artifactTypeId;
 	private final String artifactTypeName;
 	private final String displayName;
-	private final ReviewStatus reviewStatus;
+	private ReviewStatus reviewStatus;
 	private final SleuthkitCase sleuthkitCase;
 	private final List<BlackboardAttribute> attrsCache = new ArrayList<BlackboardAttribute>();
 	private boolean loadedCacheFromDb = false;
@@ -285,6 +285,19 @@ public class BlackboardArtifact implements Content {
 		return reviewStatus;
 	}
 
+	/**
+	 * Sets the review status of this artifact, i.e., whether it has been
+	 * approved, rejected, or is still waiting for a decision from the user.
+	 *
+	 * @param newStatus new status of the artifact
+	 *
+	 * @throws TskCoreException If an error occurs
+	 */
+	public void setReviewStatus(ReviewStatus newStatus) throws TskCoreException {
+		getSleuthkitCase().setReviewStatus(this, newStatus);
+		reviewStatus = newStatus;
+	}
+	
 	/**
 	 * Adds an attribute to this artifact.
 	 *
@@ -1310,7 +1323,8 @@ public class BlackboardArtifact implements Content {
 	 * @param artifactID       The unique id for this artifact.
 	 * @param objID            The unique id of the content with which this
 	 *                         artifact is associated.
-	 * @param artifactObjID		  The unique id of the artifact, in tsk_objects
+	 * @param artifactObjID	   The unique id of the artifact, in tsk_objects
+	 * @param dataSourceObjId  The id of the data source
 	 * @param artifactTypeID   The type id of this artifact.
 	 * @param artifactTypeName The type name of this artifact.
 	 * @param displayName      The display name of this artifact.

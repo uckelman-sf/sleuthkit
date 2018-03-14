@@ -4,7 +4,15 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
 
-AC_INIT(sleuthkit, 4.5.0)
+AC_INIT(sleuthkit, 4.6.0)
+m4_include([m4/ax_pthread.m4])
+dnl include the version from 1.12.1. This will work for
+m4_include([m4/cppunit.m4])
+m4_include([m4/ax_jni_include_dir.m4])
+m4_include([m4/ac_prog_javac_works.m4])
+m4_include([m4/ac_prog_javac.m4])
+m4_include([m4/ac_prog_java_works.m4])
+m4_include([m4/ac_prog_java.m4])
 
 AC_CONFIG_SRCDIR([tsk/base/tsk_base.h])
 AC_CONFIG_HEADERS([tsk/tsk_config.h])
@@ -22,7 +30,6 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PATH_PROG(PERL, perl)
-
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -97,20 +104,20 @@ esac
 dnl Add enable/disable option
 AC_ARG_ENABLE([java],
     [AS_HELP_STRING([--disable-java], [Do not build the java bindings or jar file])])
- 
+
 dnl Checks for libraries.
 
 
 dnl Some platforms will complain about missing included functions if libstdc++ is not included.
-AC_CHECK_LIB(stdc++, main, , AC_MSG_ERROR([missing libstdc++])) 
-AC_CHECK_HEADERS(list, , , AC_MSG_ERROR([missing STL list class header])) 
-AC_CHECK_HEADERS(map, , , AC_MSG_ERROR([missing STL map class header])) 
-AC_CHECK_HEADERS(queue, , , AC_MSG_ERROR([missing STL queue class header])) 
-AC_CHECK_HEADERS(set, , , AC_MSG_ERROR([missing STL set class header])) 
-AC_CHECK_HEADERS(stack, , , AC_MSG_ERROR([missing STL stack class header])) 
-AC_CHECK_HEADERS(streambuf, , , AC_MSG_ERROR([missing STL streambuf class header])) 
-AC_CHECK_HEADERS(string, , , AC_MSG_ERROR([missing STL string class header])) 
-AC_CHECK_HEADERS(vector, , , AC_MSG_ERROR([missing STL vector class header])) 
+AC_CHECK_LIB(stdc++, main, , AC_MSG_ERROR([missing libstdc++]))
+AC_CHECK_HEADERS(list, , , AC_MSG_ERROR([missing STL list class header]))
+AC_CHECK_HEADERS(map, , , AC_MSG_ERROR([missing STL map class header]))
+AC_CHECK_HEADERS(queue, , , AC_MSG_ERROR([missing STL queue class header]))
+AC_CHECK_HEADERS(set, , , AC_MSG_ERROR([missing STL set class header]))
+AC_CHECK_HEADERS(stack, , , AC_MSG_ERROR([missing STL stack class header]))
+AC_CHECK_HEADERS(streambuf, , , AC_MSG_ERROR([missing STL streambuf class header]))
+AC_CHECK_HEADERS(string, , , AC_MSG_ERROR([missing STL string class header]))
+AC_CHECK_HEADERS(vector, , , AC_MSG_ERROR([missing STL vector class header]))
 
 dnl Check for sqlite and its dependencies
 AC_CHECK_HEADERS([sqlite3.h],
@@ -199,6 +206,19 @@ AC_SUBST(Z_PATH, $Z_PATH)
 dnl needed for sqllite
 AC_CHECK_LIB(dl, dlopen)
 
+dnl check for user online input
+
+AC_ARG_ENABLE([offline],
+    [ AS_HELP_STRING([--enable-offline],[Turn on offline mode])],
+    [case "${enableval}" in
+	yes) offline=true ;;
+	no) offline=false ;;
+	*) AC_MSG_ERROR([bad value ${enableval} for --enable-online]) ;;
+     esac],[offline=false])
+
+AM_CONDITIONAL([OFFLINE], [test "x$offline" = xtrue])
+
+
 dnl Check if we should link libewf.
 AC_ARG_WITH([libewf],
     [AS_HELP_STRING([--without-libewf],[Do not use libewf even if it is installed])]
@@ -213,7 +233,7 @@ AS_IF([test "x$with_libewf" != "xno"],
     dnl Test the dir if they specified something beyond yes/no
     [AS_IF([test "x$with_libewf" != "xyes"],
         [AS_IF([test -d ${with_libewf}/include],
-            [CPPFLAGS="$CPPFLAGS -I${with_libewf}/include"  
+            [CPPFLAGS="$CPPFLAGS -I${with_libewf}/include"
                 LDFLAGS="$LDFLAGS -L${with_libewf}/lib"],
             dnl Dir given was not correct
             [AC_MSG_FAILURE([libewf directory not found at ${with_libewf}])])
@@ -340,7 +360,7 @@ AC_CONFIG_FILES([
     tests/Makefile
     samples/Makefile
     man/Makefile
-    bindings/java/Makefile 
+    bindings/java/Makefile
     bindings/java/jni/Makefile
     unit_tests/Makefile
     unit_tests/base/Makefile
@@ -360,4 +380,3 @@ Features:
    Java/JNI support:                      $ax_java_support
    Multithreading:                        $ax_multithread
 ]);
-
