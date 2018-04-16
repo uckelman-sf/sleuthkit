@@ -1,7 +1,7 @@
 /*
  * Sleuth Kit Data Model
  *
- * Copyright 2011-2017 Basis Technology Corp.
+ * Copyright 2017-2018 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,21 +29,23 @@ import java.util.logging.Logger;
 
 /**
  * Defines an aggregate of filters to apply to a CommunicationsManager query.
- *
  */
-public class CommunicationsFilter {
+final public class CommunicationsFilter {
 
+	/**
+	 * For now all filters are anded together
+	 */
 	private final List<SubFilter> andFilters;
-	// RAMAN TBD: figure out OR filters, I don't think we need any
-	//private final List<SubFilter> orFilters;
 
+	/**
+	 * Create a new empty CommunicationsFilter.
+	 */
 	public CommunicationsFilter() {
 		this(Collections.<SubFilter>emptyList());
 	}
 
 	CommunicationsFilter(List<? extends SubFilter> andSubFilters) {
 		this.andFilters = new ArrayList<SubFilter>(andSubFilters);
-		//this.orFilters = new ArrayList<SubFilter>;
 	}
 
 	/**
@@ -72,7 +74,7 @@ public class CommunicationsFilter {
 	/**
 	 * Unit level filter.
 	 */
-	public static abstract class SubFilter {
+	 static abstract class SubFilter {
 
 		/**
 		 * Returns a string description of the filter.
@@ -92,10 +94,10 @@ public class CommunicationsFilter {
 	}
 
 	/**
-	 * Filters communications by relationship type.
+	 * Filters relationships by relationship type.
 	 *
 	 */
-	public static class RelationshipTypeFilter extends SubFilter {
+	final public static class RelationshipTypeFilter extends SubFilter {
 
 		private final Set<Relationship.Type> relationshipTypes;
 
@@ -135,7 +137,10 @@ public class CommunicationsFilter {
 		}
 	}
 
-	public static class DateRangeFilter extends SubFilter {
+	/**
+	 * Filters communications by date range
+	 */
+	final public static class DateRangeFilter extends SubFilter {
 
 		private final long startDate;
 		private final long endDate;
@@ -189,10 +194,10 @@ public class CommunicationsFilter {
 	}
 
 	/**
-	 * Filter communications by account type.
+	 * Filter accounts and relationships by account type.
 	 *
 	 */
-	public static class AccountTypeFilter extends SubFilter {
+	final public static class AccountTypeFilter extends SubFilter {
 
 		private final Set<Account.Type> accountTypes;
 
@@ -237,7 +242,7 @@ public class CommunicationsFilter {
 	 * Filter by device ids.
 	 *
 	 */
-	public static class DeviceFilter extends SubFilter {
+	final public static class DeviceFilter extends SubFilter {
 
 		private final Set<String> deviceIds;
 

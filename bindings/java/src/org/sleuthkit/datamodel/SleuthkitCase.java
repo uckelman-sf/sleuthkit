@@ -1,7 +1,7 @@
 /*
  * Sleuth Kit Data Model
  *
- * Copyright 2011-2017 Basis Technology Corp.
+ * Copyright 2011-2018 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -94,7 +94,7 @@ public class SleuthkitCase {
 	 * tsk/auto/tsk_db.h.
 	 */
 	private static final CaseDbSchemaVersionNumber CURRENT_DB_SCHEMA_VERSION
-			= new CaseDbSchemaVersionNumber(7, 2);
+			= new CaseDbSchemaVersionNumber(8, 0);
 
 	private static final long BASE_ARTIFACT_ID = Long.MIN_VALUE; // Artifact ids will start at the lowest negative value
 	private static final Logger logger = Logger.getLogger(SleuthkitCase.class.getName());
@@ -608,6 +608,7 @@ public class SleuthkitCase {
 				dbSchemaVersion = updateFromSchema6toSchema7(dbSchemaVersion, connection);
 				dbSchemaVersion = updateFromSchema7toSchema7dot1(dbSchemaVersion, connection);
 				dbSchemaVersion = updateFromSchema7dot1toSchema7dot2(dbSchemaVersion, connection);
+				dbSchemaVersion = updateFromSchema7dot2toSchema8dot0(dbSchemaVersion, connection);
 				statement = connection.createStatement();
 				connection.executeUpdate(statement, "UPDATE tsk_db_info SET schema_ver = " + dbSchemaVersion.getMajor() + ", schema_minor_ver = " + dbSchemaVersion.getMinor()); //NON-NLS
 				statement.close();
@@ -675,7 +676,7 @@ public class SleuthkitCase {
 		try {
 			SleuthkitCase.logger.info(String.format("sqlite-jdbc version %s loaded in %s mode", //NON-NLS
 					SQLiteJDBCLoader.getVersion(), SQLiteJDBCLoader.isNativeMode()
-							? "native" : "pure-java")); //NON-NLS
+					? "native" : "pure-java")); //NON-NLS
 		} catch (Exception ex) {
 			SleuthkitCase.logger.log(Level.SEVERE, "Error querying case database mode", ex);
 		}
@@ -1212,13 +1213,12 @@ public class SleuthkitCase {
 				statement.execute("CREATE TABLE account_types (account_type_id INTEGER PRIMARY KEY, type_name TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL)");
 				statement.execute("CREATE TABLE accounts (account_id INTEGER PRIMARY KEY, account_type_id INTEGER NOT NULL, account_unique_identifier TEXT NOT NULL,  UNIQUE(account_type_id, account_unique_identifier) , FOREIGN KEY(account_type_id) REFERENCES account_types(account_type_id))");
 				statement.execute("CREATE TABLE account_relationships (relationship_id INTEGER PRIMARY KEY, account1_id INTEGER NOT NULL, account2_id INTEGER NOT NULL, relationship_source_obj_id INTEGER NOT NULL,  date_time INTEGER, relationship_type INTEGER NOT NULL, data_source_obj_id INTEGER NOT NULL, UNIQUE(account1_id, account2_id, relationship_source_obj_id), FOREIGN KEY(account1_id) REFERENCES accounts(account_id), FOREIGN KEY(account2_id) REFERENCES accounts(account_id), FOREIGN KEY(relationship_source_obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(data_source_obj_id) REFERENCES tsk_objects(obj_id))");
-			}
-			else {
+			} else {
 				statement.execute("CREATE TABLE account_types (account_type_id BIGSERIAL PRIMARY KEY, type_name TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL)");
 				statement.execute("CREATE TABLE accounts (account_id BIGSERIAL PRIMARY KEY, account_type_id INTEGER NOT NULL, account_unique_identifier TEXT NOT NULL,  UNIQUE(account_type_id, account_unique_identifier) , FOREIGN KEY(account_type_id) REFERENCES account_types(account_type_id))");
 				statement.execute("CREATE TABLE account_relationships  (relationship_id BIGSERIAL PRIMARY KEY, account1_id INTEGER NOT NULL, account2_id INTEGER NOT NULL, relationship_source_obj_id INTEGER NOT NULL, date_time BIGINT, relationship_type INTEGER NOT NULL, data_source_obj_id INTEGER NOT NULL, UNIQUE(account1_id, account2_id, relationship_source_obj_id), FOREIGN KEY(account1_id) REFERENCES accounts(account_id), FOREIGN KEY(account2_id) REFERENCES accounts(account_id), FOREIGN KEY(relationship_source_obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(data_source_obj_id) REFERENCES tsk_objects(obj_id))");
 			}
-			
+
 			// Create indexes
 			statement.execute("CREATE INDEX artifact_artifact_objID ON blackboard_artifacts(artifact_obj_id)");
 			statement.execute("CREATE INDEX relationships_account1  ON account_relationships(account1_id)");
@@ -1227,12 +1227,93 @@ public class SleuthkitCase {
 			statement.execute("CREATE INDEX relationships_date_time  ON account_relationships(date_time)");
 			statement.execute("CREATE INDEX relationships_relationship_type  ON account_relationships(relationship_type)");
 			statement.execute("CREATE INDEX relationships_data_source_obj_id  ON account_relationships(data_source_obj_id)");
-			
+
 			return new CaseDbSchemaVersionNumber(7, 2);
 		} finally {
 			closeResultSet(resultSet);
-			closeStatement(statement);	
+			closeStatement(statement);
 			closeStatement(updstatement);
+			releaseSingleUserCaseWriteLock();
+		}
+	}
+
+	/**
+	 * Updates a schema version 7.2 database to a schema version 7.3 database.
+	 *
+	 * @param schemaVersion The current schema version of the database.
+	 * @param connection    A connection to the case database.
+	 *
+	 * @return The new database schema version.
+	 *
+	 * @throws SQLException     If there is an error completing a database
+	 *                          operation.
+	 * @throws TskCoreException If there is an error completing a database
+	 *                          operation via another SleuthkitCase method.
+	 */
+	private CaseDbSchemaVersionNumber updateFromSchema7dot2toSchema8dot0(CaseDbSchemaVersionNumber schemaVersion, CaseDbConnection connection) throws SQLException, TskCoreException {
+		if (schemaVersion.getMajor() != 7) {
+			return schemaVersion;
+		}
+
+		if (schemaVersion.getMinor() != 2) {
+			return schemaVersion;
+		}
+
+		Statement updateSchemaStatement = connection.createStatement();
+		Statement getExistingReportsStatement = connection.createStatement();
+		ResultSet resultSet = null;
+		ResultSet existingReports = null;
+
+		acquireSingleUserCaseWriteLock();
+		try {
+			// Update the schema to turn report_id into an object id.
+
+			// Unfortunately, SQLite doesn't support adding a constraint
+			// to an existing table so we have to rename the old...
+			updateSchemaStatement.execute("ALTER TABLE reports RENAME TO old_reports");
+
+			// ...create the new...
+			updateSchemaStatement.execute("CREATE TABLE reports (obj_id BIGSERIAL PRIMARY KEY, path TEXT NOT NULL, crtime INTEGER NOT NULL, src_module_name TEXT NOT NULL, report_name TEXT NOT NULL, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id))");
+
+			// ...add the existing report records back...
+			existingReports = getExistingReportsStatement.executeQuery("SELECT * FROM old_reports");
+			while (existingReports.next()) {
+				String path = existingReports.getString(2);
+				long crtime = existingReports.getInt(3);
+				String sourceModule = existingReports.getString(4);
+				String reportName = existingReports.getString(5);
+
+				PreparedStatement insertObjectStatement = connection.getPreparedStatement(PREPARED_STATEMENT.INSERT_OBJECT, Statement.RETURN_GENERATED_KEYS);
+				insertObjectStatement.clearParameters();
+				insertObjectStatement.setNull(1, java.sql.Types.BIGINT);
+				insertObjectStatement.setLong(2, TskData.ObjectType.REPORT.getObjectType());
+				connection.executeUpdate(insertObjectStatement);
+				resultSet = insertObjectStatement.getGeneratedKeys();
+				if (!resultSet.next()) {
+					throw new TskCoreException(String.format("Failed to INSERT report %s (%s) in tsk_objects table", reportName, path));
+				}
+				long objectId = resultSet.getLong(1); //last_insert_rowid()
+
+				// INSERT INTO reports (obj_id, path, crtime, src_module_name, display_name) VALUES (?, ?, ?, ?, ?)
+				PreparedStatement insertReportStatement = connection.getPreparedStatement(PREPARED_STATEMENT.INSERT_REPORT);
+				insertReportStatement.clearParameters();
+				insertReportStatement.setLong(1, objectId);
+				insertReportStatement.setString(2, path);
+				insertReportStatement.setLong(3, crtime);
+				insertReportStatement.setString(4, sourceModule);
+				insertReportStatement.setString(5, reportName);
+				connection.executeUpdate(insertReportStatement);
+			}
+
+			// ...and drop the old table.
+			updateSchemaStatement.execute("DROP TABLE old_reports");
+
+			return new CaseDbSchemaVersionNumber(8, 0);
+		} finally {
+			closeResultSet(resultSet);
+			closeResultSet(existingReports);
+			closeStatement(updateSchemaStatement);
+			closeStatement(getExistingReportsStatement);
 			releaseSingleUserCaseWriteLock();
 		}
 	}
@@ -1625,6 +1706,8 @@ public class SleuthkitCase {
 							} else {
 								throw new TskCoreException("Parentless object has wrong type to be a root (ABSTRACTFILE, but not VIRTUAL_DIRECTORY: " + i.type);
 							}
+							break;
+						case REPORT:
 							break;
 						default:
 							throw new TskCoreException("Parentless object has wrong type to be a root: " + i.type);
@@ -3867,6 +3950,9 @@ public class SleuthkitCase {
 				case ARTIFACT:
 					content = getArtifactById(id);
 					break;
+				case REPORT:
+					content = getReportById(id);
+					break;
 				default:
 					throw new TskCoreException("Could not obtain Content object with ID: " + id);
 			}
@@ -4124,7 +4210,7 @@ public class SleuthkitCase {
 			releaseSingleUserCaseReadLock();
 		}
 	}
-	
+
 	/**
 	 * Get artifact from blackboard_artifacts table by its artifact_id
 	 *
@@ -4265,15 +4351,15 @@ public class SleuthkitCase {
 	 *                   search for the given file name
 	 * @param fileName   Pattern of the name of the file or directory to match
 	 *                   (case insensitive, used in LIKE SQL statement).
-	 * @param dirName    Pattern of the name of a parent directory of fileName
-	 *                   (case insensitive, used in LIKE SQL statement)
+	 * @param dirSubString Substring that must exist in parent path.  
+	 *                     Will be surrounded by % in LIKE query
 	 *
 	 * @return a list of AbstractFile for files/directories whose name matches
 	 *         fileName and whose parent directory contains dirName.
 	 *
 	 * @throws org.sleuthkit.datamodel.TskCoreException
 	 */
-	public List<AbstractFile> findFiles(Content dataSource, String fileName, String dirName) throws TskCoreException {
+	public List<AbstractFile> findFiles(Content dataSource, String fileName, String dirSubString) throws TskCoreException {
 		List<AbstractFile> files = new ArrayList<AbstractFile>();
 		CaseDbConnection connection = connections.getConnection();
 		acquireSingleUserCaseReadLock();
@@ -4282,7 +4368,7 @@ public class SleuthkitCase {
 			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.SELECT_FILES_BY_DATA_SOURCE_AND_PARENT_PATH_AND_NAME);
 			statement.clearParameters();
 			statement.setString(1, fileName.toLowerCase());
-			statement.setString(2, "%" + dirName.toLowerCase() + "%"); //NON-NLS
+			statement.setString(2, "%" + dirSubString.toLowerCase() + "%"); //NON-NLS
 			statement.setLong(3, dataSource.getId());
 			resultSet = connection.executeQuery(statement);
 			files.addAll(resultSetToAbstractFiles(resultSet, connection));
@@ -5205,6 +5291,107 @@ public class SleuthkitCase {
 	}
 
 	/**
+	 * Updates an existing derived file in the database and returns a new
+	 * derived file object with the updated contents
+	 *
+	 * @param derivedFile	  The derived file you wish to update
+	 * @param localPath       local path of the derived file, including the file
+	 *                        name. The path is relative to the database path.
+	 * @param size            size of the derived file in bytes
+	 * @param ctime
+	 * @param crtime
+	 * @param mimeType		  The MIME type the updated file should have, null
+	 *                        to unset it
+	 * @param atime
+	 * @param mtime
+	 * @param isFile          whether a file or directory, true if a file
+	 * @param rederiveDetails details needed to re-derive file (will be specific
+	 *                        to the derivation method), currently unused
+	 * @param toolName        name of derivation method/tool, currently unused
+	 * @param toolVersion     version of derivation method/tool, currently
+	 *                        unused
+	 * @param otherDetails    details of derivation method/tool, currently
+	 *                        unused
+	 * @param encodingType    Type of encoding used on the file (or NONE if no
+	 *                        encoding)
+	 *
+	 * @return newly created derived file object which contains the updated data
+	 *
+	 * @throws TskCoreException exception thrown if the object creation failed
+	 *                          due to a critical system error
+	 */
+	public DerivedFile updateDerivedFile(DerivedFile derivedFile, String localPath,
+			long size, long ctime, long crtime, long atime, long mtime,
+			boolean isFile, String mimeType,
+			String rederiveDetails, String toolName, String toolVersion,
+			String otherDetails, TskData.EncodingType encodingType) throws TskCoreException {
+		CaseDbConnection connection = connections.getConnection();
+		acquireSingleUserCaseWriteLock();
+		ResultSet rs = null;
+		try {
+			Content parentObj = derivedFile.getParent();
+			connection.beginTransaction();
+			final long parentId = parentObj.getId();
+			String parentPath = "";
+			if (parentObj instanceof BlackboardArtifact) {
+				parentPath = parentObj.getUniquePath() + '/' + parentObj.getName() + '/';
+			} else if (parentObj instanceof AbstractFile) {
+				parentPath = ((AbstractFile) parentObj).getParentPath() + parentObj.getName() + '/'; //NON-NLS
+			}
+			// UPDATE tsk_files SET type = ?, dir_type = ?, meta_type = ?, dir_flags = ?,  meta_flags = ?, "
+			// + "size= ?, ctime= ?, crtime= ?, atime= ?, mtime= ?, mime_type = ? WHERE obj_id = ?"), //NON-NLS
+			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.UPDATE_DERIVED_FILE);
+			statement.clearParameters();
+
+			//type
+			statement.setShort(1, TskData.TSK_DB_FILES_TYPE_ENUM.DERIVED.getFileType());
+
+			//flags
+			final TSK_FS_NAME_TYPE_ENUM dirType = isFile ? TSK_FS_NAME_TYPE_ENUM.REG : TSK_FS_NAME_TYPE_ENUM.DIR;
+			statement.setShort(2, dirType.getValue());
+			final TSK_FS_META_TYPE_ENUM metaType = isFile ? TSK_FS_META_TYPE_ENUM.TSK_FS_META_TYPE_REG : TSK_FS_META_TYPE_ENUM.TSK_FS_META_TYPE_DIR;
+			statement.setShort(3, metaType.getValue());
+
+			//note: using alloc under assumption that derived files derive from alloc files
+			final TSK_FS_NAME_FLAG_ENUM dirFlag = TSK_FS_NAME_FLAG_ENUM.ALLOC;
+			statement.setShort(4, dirFlag.getValue());
+			final short metaFlags = (short) (TSK_FS_META_FLAG_ENUM.ALLOC.getValue()
+					| TSK_FS_META_FLAG_ENUM.USED.getValue());
+			statement.setShort(5, metaFlags);
+
+			//size
+			statement.setLong(6, size);
+
+			//mactimes
+			//long ctime, long crtime, long atime, long mtime,
+			statement.setLong(7, ctime);
+			statement.setLong(8, crtime);
+			statement.setLong(9, atime);
+			statement.setLong(10, mtime);
+			statement.setString(11, mimeType);
+			statement.setString(12, String.valueOf(derivedFile.getId()));
+			connection.executeUpdate(statement);
+
+			//add localPath
+			updateFilePath(connection, derivedFile.getId(), localPath, encodingType);
+
+			connection.commitTransaction();
+
+			long dataSourceObjId = getDataSourceObjectId(connection, parentId);
+			final String extension = extractExtension(derivedFile.getName());
+			return new DerivedFile(this, derivedFile.getId(), dataSourceObjId, derivedFile.getName(), dirType, metaType, dirFlag, metaFlags,
+					size, ctime, crtime, atime, mtime, null, null, parentPath, localPath, parentId, null, encodingType, extension);
+		} catch (SQLException ex) {
+			connection.rollbackTransaction();
+			throw new TskCoreException("Failed to add derived file to case database", ex);
+		} finally {
+			closeResultSet(rs);
+			connection.close();
+			releaseSingleUserCaseWriteLock();
+		}
+	}
+
+	/**
 	 * Wraps the version of addLocalFile that takes a Transaction in a
 	 * transaction local to this method.
 	 *
@@ -5412,6 +5599,26 @@ public class SleuthkitCase {
 		statement.setLong(1, objId);
 		statement.setString(2, path);
 		statement.setInt(3, type.getType());
+		connection.executeUpdate(statement);
+	}
+
+	/**
+	 * Update the path for a content object in the tsk_file_paths table
+	 *
+	 * @param connection A case database connection.
+	 * @param objId      The object id of the file for which to update the path.
+	 * @param path       The path to update.
+	 * @param type       The TSK encoding type of the file.
+	 *
+	 * @throws SQLException Thrown if database error occurred and path was not
+	 *                      updated.
+	 */
+	private void updateFilePath(CaseDbConnection connection, long objId, String path, TskData.EncodingType type) throws SQLException {
+		PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.UPDATE_LOCAL_PATH);
+		statement.clearParameters();
+		statement.setString(1, path);
+		statement.setInt(2, type.getType());
+		statement.setLong(3, objId);
 		connection.executeUpdate(statement);
 	}
 
@@ -6041,6 +6248,9 @@ public class SleuthkitCase {
 							children.add(art);
 						}
 						break;
+					case REPORT:
+						// Do nothing for now - see JIRA-3673
+						break;
 					default:
 						throw new TskCoreException("Image has child of invalid type: " + info.type);
 				}
@@ -6068,6 +6278,8 @@ public class SleuthkitCase {
 					|| info.type == ObjectType.ABSTRACTFILE
 					|| info.type == ObjectType.ARTIFACT) {
 				children.add(info.id);
+			} else if (info.type == ObjectType.REPORT) {
+				// Do nothing for now - see JIRA-3673
 			} else {
 				throw new TskCoreException("Image has child of invalid type: " + info.type);
 			}
@@ -7254,7 +7466,7 @@ public class SleuthkitCase {
 	 * @return A TagName data transfer object (DTO) for the new row.
 	 *
 	 * @throws TskCoreException
-	 * @Deprecated addOrUpdateTagName should be used this method calls
+	 * @deprecated addOrUpdateTagName should be used this method calls
 	 * addOrUpdateTagName with a default knownStatus value
 	 */
 	@Deprecated
@@ -7870,17 +8082,42 @@ public class SleuthkitCase {
 	 *                         database directory (case directory in Autopsy) or
 	 *                         one of its subdirectories.
 	 * @param sourceModuleName The name of the module that created the report.
-	 * @param reportName       The report name, may be empty.
+	 * @param reportName       The report name.
 	 *
-	 * @return A Report data transfer object (DTO) for the new row.
+	 * @return A Report object for the new row.
 	 *
 	 * @throws TskCoreException
 	 */
 	public Report addReport(String localPath, String sourceModuleName, String reportName) throws TskCoreException {
+		return addReport(localPath, sourceModuleName, reportName, null);
+	}
+
+	/**
+	 * Inserts a row into the reports table in the case database.
+	 *
+	 * @param localPath        The path of the report file, must be in the
+	 *                         database directory (case directory in Autopsy) or
+	 *                         one of its subdirectories.
+	 * @param sourceModuleName The name of the module that created the report.
+	 * @param reportName       The report name.
+	 * @param parent           The Content from which the report was created, if
+	 *                         available.
+	 *
+	 * @return A Report object for the new row.
+	 *
+	 * @throws TskCoreException
+	 */
+	public Report addReport(String localPath, String sourceModuleName, String reportName, Content parent) throws TskCoreException {
 		// Make sure the local path of the report is in the database directory
 		// or one of its subdirectories.
 		String relativePath = ""; //NON-NLS
-		try {
+		long createTime = 0;
+		String localPathLower = localPath.toLowerCase();
+
+		if (localPathLower.startsWith("http")) {
+			relativePath = localPathLower;
+			createTime = System.currentTimeMillis() / 1000;
+		} else {
 			/*
 			 * Note: The following call to .relativize() may be dangerous in
 			 * case-sensitive operating systems and should be looked at. For
@@ -7888,23 +8125,22 @@ public class SleuthkitCase {
 			 * using the length of the result to pull out the appropriate number
 			 * of characters from the localPath String.
 			 */
-			String casePathLower = getDbDirPath().toLowerCase();
-			String localPathLower = localPath.toLowerCase();
-			int length = new File(casePathLower).toURI().relativize(new File(localPathLower).toURI()).getPath().length();
-			relativePath = new File(localPath.substring(localPathLower.length() - length)).getPath();
-		} catch (IllegalArgumentException ex) {
-			String errorMessage = String.format("Local path %s not in the database directory or one of its subdirectories", localPath);
-			throw new TskCoreException(errorMessage, ex);
-		}
-
-		// Figure out the create time of the report.
-		long createTime = 0;
-		try {
-			java.io.File tempFile = new java.io.File(localPath);
-			// Convert to UNIX epoch (seconds, not milliseconds).
-			createTime = tempFile.lastModified() / 1000;
-		} catch (Exception ex) {
-			throw new TskCoreException("Could not get create time for report at " + localPath, ex);
+			try {
+				String casePathLower = getDbDirPath().toLowerCase();
+				int length = new File(casePathLower).toURI().relativize(new File(localPathLower).toURI()).getPath().length();
+				relativePath = new File(localPath.substring(localPathLower.length() - length)).getPath();
+			} catch (IllegalArgumentException ex) {
+				String errorMessage = String.format("Local path %s not in the database directory or one of its subdirectories", localPath);
+				throw new TskCoreException(errorMessage, ex);
+			}
+			try {
+				// get its file time
+				java.io.File tempFile = new java.io.File(localPath);
+				// Convert to UNIX epoch (seconds, not milliseconds).
+				createTime = tempFile.lastModified() / 1000;
+			} catch (Exception ex) {
+				throw new TskCoreException("Could not get create time for report at " + localPath, ex);
+			}
 		}
 
 		// Write the report data to the database.
@@ -7912,18 +8148,34 @@ public class SleuthkitCase {
 		acquireSingleUserCaseWriteLock();
 		ResultSet resultSet = null;
 		try {
-			// INSERT INTO reports (path, crtime, src_module_name, display_name) VALUES (?, ?, ?, ?)
-			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.INSERT_REPORT, Statement.RETURN_GENERATED_KEYS);
+			// Insert a row for the report into the tsk_objects table.
+			// INSERT INTO tsk_objects (par_obj_id, type) VALUES (?, ?)
+			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.INSERT_OBJECT, Statement.RETURN_GENERATED_KEYS);
 			statement.clearParameters();
-			statement.setString(1, relativePath);
-			statement.setLong(2, createTime);
-			statement.setString(3, sourceModuleName);
-			statement.setString(4, reportName);
+			if (parent == null) {
+				statement.setNull(1, java.sql.Types.BIGINT);
+			} else {
+				statement.setLong(1, parent.getId());
+			}
+
+			statement.setLong(2, TskData.ObjectType.REPORT.getObjectType());
 			connection.executeUpdate(statement);
 			resultSet = statement.getGeneratedKeys();
-			resultSet.next();
-			return new Report(resultSet.getLong(1), //last_insert_rowid()
-					localPath, createTime, sourceModuleName, reportName);
+			if (!resultSet.next()) {
+				throw new TskCoreException(String.format("Failed to INSERT report %s (%s) in tsk_objects table", reportName, localPath));
+			}
+			long objectId = resultSet.getLong(1); //last_insert_rowid()
+
+			// INSERT INTO reports (obj_id, path, crtime, src_module_name, display_name) VALUES (?, ?, ?, ?, ?)
+			statement = connection.getPreparedStatement(PREPARED_STATEMENT.INSERT_REPORT);
+			statement.clearParameters();
+			statement.setLong(1, objectId);
+			statement.setString(2, relativePath);
+			statement.setLong(3, createTime);
+			statement.setString(4, sourceModuleName);
+			statement.setString(5, reportName);
+			connection.executeUpdate(statement);
+			return new Report(this, objectId, localPath, createTime, sourceModuleName, reportName, parent);
 		} catch (SQLException ex) {
 			throw new TskCoreException("Error adding report " + localPath + " to reports table", ex);
 		} finally {
@@ -7951,11 +8203,16 @@ public class SleuthkitCase {
 			resultSet = connection.executeQuery(statement);
 			ArrayList<Report> reports = new ArrayList<Report>();
 			while (resultSet.next()) {
-				reports.add(new Report(resultSet.getLong("report_id"), //NON-NLS
-						Paths.get(getDbDirPath(), resultSet.getString("path")).normalize().toString(), //NON-NLS
-						resultSet.getLong("crtime"), //NON-NLS
+                String localpath = resultSet.getString("path");
+                if (localpath.toLowerCase().startsWith("http") == false) {
+                    // make path absolute
+                    localpath = Paths.get(getDbDirPath(), localpath).normalize().toString(); //NON-NLS
+                }
+                reports.add(new Report(this, resultSet.getLong("obj_id"), //NON-NLS
+						localpath, //NON-NLS
+                        resultSet.getLong("crtime"), //NON-NLS
 						resultSet.getString("src_module_name"), //NON-NLS
-						resultSet.getString("report_name")));  //NON-NLS
+						resultSet.getString("report_name"), null));  //NON-NLS
 			}
 			return reports;
 		} catch (SQLException ex) {
@@ -7965,6 +8222,47 @@ public class SleuthkitCase {
 			connection.close();
 			releaseSingleUserCaseReadLock();
 		}
+	}
+
+	/**
+	 * Get a Report object for the given id.
+	 *
+	 * @param id
+	 *
+	 * @return A new Report object for the given id.
+	 *
+	 * @throws TskCoreException
+	 */
+	public Report getReportById(long id) throws TskCoreException {
+		CaseDbConnection connection = connections.getConnection();
+		acquireSingleUserCaseReadLock();
+		ResultSet resultSet = null;
+		Report report = null;
+		try {
+			// SELECT * FROM reports WHERE obj_id = ?
+			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.SELECT_REPORT_BY_ID);
+			statement.clearParameters();
+			statement.setLong(1, id);
+			resultSet = connection.executeQuery(statement);
+
+			if (resultSet.next()) {
+				report = new Report(this, resultSet.getLong("obj_id"), //NON-NLS
+						Paths.get(getDbDirPath(), resultSet.getString("path")).normalize().toString(), //NON-NLS
+						resultSet.getLong("crtime"), //NON-NLS
+						resultSet.getString("src_module_name"), //NON-NLS
+						resultSet.getString("report_name"), null);  //NON-NLS
+			} else {
+				throw new TskCoreException("No report found for id: " + id);
+			}
+		} catch (SQLException ex) {
+			throw new TskCoreException("Error querying reports table for id: " + id, ex);
+		} finally {
+			closeResultSet(resultSet);
+			connection.close();
+			releaseSingleUserCaseReadLock();
+		}
+
+		return report;
 	}
 
 	/**
@@ -7978,7 +8276,7 @@ public class SleuthkitCase {
 		CaseDbConnection connection = connections.getConnection();
 		acquireSingleUserCaseWriteLock();
 		try {
-			// DELETE FROM reports WHERE reports.report_id = ?
+			// DELETE FROM reports WHERE reports.obj_id = ?
 			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.DELETE_REPORT);
 			statement.setLong(1, report.getId());
 			connection.executeUpdate(statement);
@@ -8230,6 +8528,7 @@ public class SleuthkitCase {
 			closeResultSet(resultSet);
 			closeStatement(statement);
 			releaseSingleUserCaseReadLock();
+
 		}
 	}
 
@@ -8317,9 +8616,12 @@ public class SleuthkitCase {
 		INSERT_OBJECT("INSERT INTO tsk_objects (par_obj_id, type) VALUES (?, ?)"), //NON-NLS
 		INSERT_FILE("INSERT INTO tsk_files (obj_id, fs_obj_id, name, type, has_path, dir_type, meta_type, dir_flags, meta_flags, size, ctime, crtime, atime, mtime, parent_path, data_source_obj_id,extension) " //NON-NLS
 				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)"), //NON-NLS
+		UPDATE_DERIVED_FILE("UPDATE tsk_files SET type = ?, dir_type = ?, meta_type = ?, dir_flags = ?,  meta_flags = ?, size= ?, ctime= ?, crtime= ?, atime= ?, mtime= ?, mime_type = ?  "
+				+ "WHERE obj_id = ?"), //NON-NLS
 		INSERT_LAYOUT_FILE("INSERT INTO tsk_file_layout (obj_id, byte_start, byte_len, sequence) " //NON-NLS
 				+ "VALUES (?, ?, ?, ?)"), //NON-NLS
 		INSERT_LOCAL_PATH("INSERT INTO tsk_files_path (obj_id, path, encoding_type) VALUES (?, ?, ?)"), //NON-NLS
+		UPDATE_LOCAL_PATH("UPDATE tsk_files_path SET path = ?, encoding_type = ? WHERE obj_id = ?"), //NON-NLS
 		COUNT_CHILD_OBJECTS_BY_PARENT("SELECT COUNT(obj_id) AS count FROM tsk_objects WHERE par_obj_id = ?"), //NON-NLS
 		SELECT_FILE_SYSTEM_BY_OBJECT("SELECT fs_obj_id from tsk_files WHERE obj_id=?"), //NON-NLS
 		SELECT_TAG_NAMES("SELECT * FROM tag_names"), //NON-NLS
@@ -8342,8 +8644,9 @@ public class SleuthkitCase {
 		SELECT_ARTIFACT_TAG_BY_ID("SELECT * FROM blackboard_artifact_tags INNER JOIN tag_names ON blackboard_artifact_tags.tag_name_id = tag_names.tag_name_id  WHERE blackboard_artifact_tags.tag_id = ?"), //NON-NLS
 		SELECT_ARTIFACT_TAGS_BY_ARTIFACT("SELECT * FROM blackboard_artifact_tags INNER JOIN tag_names ON blackboard_artifact_tags.tag_name_id = tag_names.tag_name_id WHERE blackboard_artifact_tags.artifact_id = ?"), //NON-NLS
 		SELECT_REPORTS("SELECT * FROM reports"), //NON-NLS
-		INSERT_REPORT("INSERT INTO reports (path, crtime, src_module_name, report_name) VALUES (?, ?, ?, ?)"), //NON-NLS
-		DELETE_REPORT("DELETE FROM reports WHERE reports.report_id = ?"), //NON-NLS
+		SELECT_REPORT_BY_ID("SELECT * FROM reports WHERE obj_id = ?"), //NON-NLS
+		INSERT_REPORT("INSERT INTO reports (obj_id, path, crtime, src_module_name, report_name) VALUES (?, ?, ?, ?, ?)"), //NON-NLS
+		DELETE_REPORT("DELETE FROM reports WHERE reports.obj_id = ?"), //NON-NLS
 		INSERT_INGEST_JOB("INSERT INTO ingest_jobs (obj_id, host_name, start_date_time, end_date_time, status_id, settings_dir) VALUES (?, ?, ?, ?, ?, ?)"), //NON-NLS
 		INSERT_INGEST_MODULE("INSERT INTO ingest_modules (display_name, unique_name, type_id, version) VALUES(?, ?, ?, ?)"), //NON-NLS
 		SELECT_ATTR_BY_VALUE_BYTE("SELECT source FROM blackboard_attributes WHERE artifact_id = ? AND attribute_type_id = ? AND value_type = 4 AND value_byte = ?"), //NON-NLS

@@ -135,7 +135,7 @@ static uint8_t
             TSK_OFF_T offs;
             ssize_t cnt;
 
-            if (!gd_size)
+            if (gd_size < sizeof(ext4fs_gd))
                 gd_size = sizeof(ext4fs_gd);
 
             if (ext2fs->ext4_grp_buf == NULL) {
@@ -180,7 +180,7 @@ static uint8_t
     else {
         TSK_OFF_T offs;
         ssize_t cnt;
-        if (!gd_size)
+        if (gd_size < sizeof(ext2fs_gd))
             gd_size = sizeof(ext2fs_gd);
 
         if (ext2fs->grp_buf == NULL) {
@@ -493,6 +493,18 @@ ext2fs_dinode_load(EXT2FS_INFO * ext2fs, TSK_INUM_T dino_inum,
         printf("DEBUG: d_inode_load 64bit gd_size=%d\n",
             tsk_getu16(fs->endian, ext2fs->fs->s_desc_size));
 #endif
+        /* Test for possible overflow */
+        if ((TSK_OFF_T)ext4_getu64(fs->endian, ext2fs->ext4_grp_buf->bg_inode_table_hi, ext2fs->ext4_grp_buf->bg_inode_table_lo) 
+                >= LLONG_MAX / fs->block_size) {
+            tsk_release_lock(&ext2fs->lock);
+
+            tsk_error_reset();
+            tsk_error_set_errno(TSK_ERR_FS_READ);
+            tsk_error_set_errstr
+            ("ext2fs_dinode_load: Overflow when calculating address");
+            return 1;
+        }
+
         addr =
             (TSK_OFF_T) ext4_getu64(fs->endian,
             ext2fs->ext4_grp_buf->bg_inode_table_hi,
@@ -886,8 +898,7 @@ ext2fs_inode_lookup(TSK_FS_INFO * fs, TSK_FS_FILE * a_fs_file,
         return 1;
     }
 
-    if (dino_buf != NULL)
-        free((char *) dino_buf);
+    free(dino_buf);
     return 0;
 }
 
@@ -1112,8 +1123,7 @@ ext2fs_inode_walk(TSK_FS_INFO * fs, TSK_INUM_T start_inum,
      * Cleanup.
      */
     tsk_fs_file_close(fs_file);
-    if (dino_buf != NULL)
-        free((char *) dino_buf);
+    free(dino_buf);
 
     return 0;
 }
@@ -3098,8 +3108,7 @@ ext2fs_istat(TSK_FS_INFO * fs, TSK_FS_ISTAT_FLAG_ENUM istat_flags, FILE * hFile,
     }
 
     tsk_fs_file_close(fs_file);
-    if (dino_buf != NULL)
-        free((char *) dino_buf);
+    free(dino_buf);
     return 0;
 }
 
@@ -3112,19 +3121,11 @@ ext2fs_close(TSK_FS_INFO * fs)
     EXT2FS_INFO *ext2fs = (EXT2FS_INFO *) fs;
 
     fs->tag = 0;
-    free((char *) ext2fs->fs);
-
-    if (ext2fs->grp_buf != NULL)
-        free((char *) ext2fs->grp_buf);
-
-    if (ext2fs->ext4_grp_buf != NULL)
-        free((char *) ext2fs->ext4_grp_buf);
-
-    if (ext2fs->bmap_buf != NULL)
-        free((char *) ext2fs->bmap_buf);
-
-    if (ext2fs->imap_buf != NULL)
-        free((char *) ext2fs->imap_buf);
+    free(ext2fs->fs);
+    free(ext2fs->grp_buf);
+    free(ext2fs->ext4_grp_buf);
+    free(ext2fs->bmap_buf);
+    free(ext2fs->imap_buf);
 
     tsk_deinit_lock(&ext2fs->lock);
 

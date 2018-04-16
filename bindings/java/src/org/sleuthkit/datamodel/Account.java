@@ -1,7 +1,7 @@
 /*
  * Sleuth Kit Data Model
  *
- * Copyright 2016 Basis Technology Corp.
+ * Copyright 2016-18 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ import java.util.List;
  * number, phone, Application, Web-site login, etc. Accounts are unique to the
  * case.
  */
-public class Account {
+public final class Account {
 
 	/**
 	 * primary key in the Accounts table, unique at the case-level
@@ -36,14 +36,13 @@ public class Account {
 
 	private final Account.Type accountType;
 	/**
-	 * id of the account, specific to the accounts type. For example: email address,
-	 * phone number, or website user name.
+	 * id of the account, specific to the accounts type. For example: email
+	 * address, phone number, or website user name.
 	 */
 	private final String typeSpecificID;
 
 	public static final class Type {
 
-		private static final long serialVersionUID = 1L;
 		//JIRA-900:Should the display names of predefined types be internationalized?
 		public static final Account.Type CREDIT_CARD = new Type("CREDIT_CARD", "Credit Card");
 		public static final Account.Type DEVICE = new Type("DEVICE", "Device");
@@ -92,6 +91,11 @@ public class Account {
 			return this.typeName;
 		}
 
+		/**
+		 * Gets the display name
+		 *
+		 * @return The display name.
+		 */
 		public String getDisplayName() {
 			return displayName;
 		}
@@ -159,5 +163,38 @@ public class Account {
 	 */
 	public long getAccountID() {
 		return this.account_id;
+	}
+
+	@Override
+	public int hashCode() {
+		int hash = 5;
+		hash = 43 * hash + (int) (this.account_id ^ (this.account_id >>> 32));
+		hash = 43 * hash + (this.accountType != null ? this.accountType.hashCode() : 0);
+		hash = 43 * hash + (this.typeSpecificID != null ? this.typeSpecificID.hashCode() : 0);
+		return hash;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		final Account other = (Account) obj;
+		if (this.account_id != other.account_id) {
+			return false;
+		}
+		if ((this.typeSpecificID == null) ? (other.typeSpecificID != null) : !this.typeSpecificID.equals(other.typeSpecificID)) {
+			return false;
+		}
+		if (this.accountType != other.accountType && (this.accountType == null || !this.accountType.equals(other.accountType))) {
+			return false;
+		}
+		return true;
 	}
 }
