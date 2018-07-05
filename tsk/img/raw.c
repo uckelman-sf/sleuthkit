@@ -149,7 +149,7 @@ raw_read_segment(IMG_RAW_INFO * raw_info, int idx, char *buf,
         //For physical drive when the buffer is larger than remaining data,
         // WinAPI ReadFile call returns -1
         //in this case buffer of exact length must be passed to ReadFile
-        if ((raw_info->is_winobj) && (rel_offset + len > raw_info->img_info.size ))
+        if ((raw_info->is_winobj) && (rel_offset + (TSK_OFF_T)len > raw_info->img_info.size ))
             len = (size_t)(raw_info->img_info.size - rel_offset);
 
         if (FALSE == ReadFile(cimg->fd, buf, (DWORD) len, &nread, NULL)) {
@@ -167,7 +167,7 @@ raw_read_segment(IMG_RAW_INFO * raw_info, int idx, char *buf,
         // We need to check if we've reached the end of a file and set nread to
         // the number of bytes read.
         if ((raw_info->is_winobj) && (nread == 0) && (rel_offset + len == raw_info->img_info.size)) {
-          nread = len;
+            nread = (DWORD)len;
         }
         cnt = (ssize_t) nread;
 
@@ -257,7 +257,8 @@ raw_read(TSK_IMG_INFO * img_info, TSK_OFF_T offset, char *buf, size_t len)
             }
 
             /* Get the length to read */
-            if ((raw_info->max_off[i] - offset) >= len)
+            // NOTE: max_off - offset can be a very large number.  Do not cast to size_t
+            if (raw_info->max_off[i] - offset >= (TSK_OFF_T)len)
                 read_len = len;
             else
                 read_len = (size_t) (raw_info->max_off[i] - offset);
@@ -274,27 +275,25 @@ raw_read(TSK_IMG_INFO * img_info, TSK_OFF_T offset, char *buf, size_t len)
             if (cnt < 0) {
                 return -1;
             }
-            if ((TSK_OFF_T) cnt != read_len) {
+            if ((size_t) cnt != read_len) {
                 return cnt;
             }
 
             /* read from the next image segment(s) if needed */
-            if (((TSK_OFF_T) cnt == read_len) && (read_len != len)) {
+            if (((size_t) cnt == read_len) && (read_len != len)) {
 
                 len -= read_len;
 
-                while (len > 0) {
+                /* go to the next image segment */
+                while ((len > 0) && (i+1 < raw_info->img_info.num_img)) {
                     ssize_t cnt2;
-                    /* go to the next image segment */
+                    
                     i++;
 
-                    if (raw_info->max_off[i] -
-                        raw_info->max_off[i - 1] >= len)
+                    if ((raw_info->max_off[i] - raw_info->max_off[i - 1]) >= (TSK_OFF_T)len)
                         read_len = len;
                     else
-                        read_len = (size_t)
-                            (raw_info->max_off[i] -
-                            raw_info->max_off[i - 1]);
+                        read_len = (size_t) (raw_info->max_off[i] - raw_info->max_off[i - 1]);
 
                     if (tsk_verbose) {
                         tsk_fprintf(stderr,
@@ -309,7 +308,7 @@ raw_read(TSK_IMG_INFO * img_info, TSK_OFF_T offset, char *buf, size_t len)
                     }
                     cnt += cnt2;
 
-                    if ((TSK_OFF_T) cnt2 != read_len) {
+                    if ((size_t) cnt2 != read_len) {
                         return cnt;
                     }
 

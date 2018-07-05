@@ -1,6 +1,9 @@
 # Copyright (c) 2017 Basis Technology.
 #
 # This software is distributed under the Common Public License 1.0
+#
+# Updates the TSK dependency repos (libewf, etc.), compiles them, and
+# compiles various TSK platforms using the current branch
 
 import codecs
 import datetime
@@ -20,13 +23,14 @@ MSBUILD_PATH = os.path.normpath("c:/Program Files (x86)/MSBuild/14.0/Bin/MSBuild
 CURRENT_PATH = os.getcwd()
 # save the build log in the output directory
 LOG_PATH = os.path.join(CURRENT_PATH, 'output', time.strftime("%Y.%m.%d-%H.%M.%S"))
-APPVEYOR = os.getenv("APPVEYOR",False)
 MINIMAL = False
-def pullAndBuildAllDependencies(branch):
+
+
+def pullAndBuildAllDependencies(depBranch):
     '''
         Compile libewf, libvhdi, libvmdk.
         Args:
-            branch: String, which branch to compile (currently only support master)
+            depBranch: String, which branch to compile (currently only support master)
     '''
     # Passed is a global variable that gets set to false
     # When an error occurs
@@ -43,29 +47,29 @@ def pullAndBuildAllDependencies(branch):
     checkPathExist(vmdkHome)
     # git update libewf, libvhdi and libvmdk
     if(passed):
-        gitPull(ewfHome, "libewf_64bit", branch)
+        gitPull(ewfHome, "libewf_64bit", depBranch)
     if(passed):
-        gitPull(vhdiHome, "libvhdi_64bit", branch)
+        gitPull(vhdiHome, "libvhdi_64bit", depBranch)
     if(passed):
-        gitPull(vmdkHome, "libvmdk_64bit", branch)
+        gitPull(vmdkHome, "libvmdk_64bit", depBranch)
 
     if not MINIMAL:
         # build 32-bit of libewf, libvhdi, libvmdk and TSK
         if(passed):
-            buildDependentLibs(ewfHome, 32, "libewf")
+            buildDependentLibs(ewfHome, 32, "libewf", "libewf_dll")
         if(passed):
-            buildDependentLibs(vhdiHome, 32, "libvhdi")
+            buildDependentLibs(vhdiHome, 32, "libvhdi", "libvhdi")
         if(passed):
-            buildDependentLibs(vmdkHome, 32, "libvmdk")
+            buildDependentLibs(vmdkHome, 32, "libvmdk", "libvmdk")
 
 
     # build 64-bit of libewf, libvhdi, libvmdk and TSK
     if(passed):
-        buildDependentLibs(ewfHome, 64, "libewf")
+        buildDependentLibs(ewfHome, 64, "libewf", "libewf_dll")
     if(passed):
-        buildDependentLibs(vhdiHome, 64, "libvhdi")
+        buildDependentLibs(vhdiHome, 64, "libvhdi", "libvhdi")
     if(passed):
-        buildDependentLibs(vmdkHome, 64, "libvmdk")
+        buildDependentLibs(vmdkHome, 64, "libvmdk", "libvmdk")
 
 
 def buildTSKAll():
@@ -142,7 +146,7 @@ def gitPull(libHome, repo, branch):
     else:
         print("Update " + repo + " failed.")
 
-def buildDependentLibs(libHome, wPlatform, targetDll):
+def buildDependentLibs(libHome, wPlatform, targetDll, project):
     '''
         build libewf.dll, libvhdi.dll and libvmdk.dll
     '''
@@ -171,14 +175,14 @@ def buildDependentLibs(libHome, wPlatform, targetDll):
     vs = []
     vs.append(MSBUILD_PATH)
     vs.append(os.path.join(targetDll + ".sln"))
+    vs.append("/t:" + project)
     vs.append("/p:configuration=" + target)
     if wPlatform == 64:
         vs.append("/p:platform=x64")
     elif wPlatform == 32:
         vs.append("/p:platform=Win32")
-    vs.append("/v:quiet")
-    vs.append("/t:clean")
-    vs.append("/t:build")
+    vs.append("/clp:ErrorsOnly")
+    vs.append("/m")
 
     outputFile = os.path.join(LOG_PATH, targetDll + "Output.txt")
     VSout = open(outputFile, 'w')
@@ -210,7 +214,12 @@ def buildTSK(wPlatform, target):
 
     print ("Building TSK " + str(wPlatform) + "-bit " + target + " build.")
     sys.stdout.flush()
-    if(APPVEYOR):
+    TSK_HOME = os.getenv("TSK_HOME",False)
+
+    if not TSK_HOME:
+        print("Please set the TSK_HOME environment variable")
+        sys.exit(1)
+    else:
         os.chdir(os.path.join(os.getenv("TSK_HOME"),"win32"))
 
     vs = []
@@ -226,9 +235,10 @@ def buildTSK(wPlatform, target):
         sys.stdout.flush()
         passed = False
         return
-    vs.append("/v:quiet")
+    vs.append("/clp:ErrorsOnly")
     vs.append("/t:clean")
     vs.append("/t:build")
+    vs.append("/m")
 
     outputFile = os.path.join(LOG_PATH, "TSKOutput.txt")
     VSout = open(outputFile, 'w')
@@ -247,15 +257,14 @@ def usage():
     '''
     Print out how to use this script.
     '''
-    print('Usage: python3 updataBuildlibs.py [[-h | --help, -b <branch> | --branch=<branch>, -m | --minimal]')
-    print('branch is which branch to build and is optional. Currently only works for master')
-    print('-m,--minimal use this option for postgres build')
+    print('Usage: python3 updateAndBuildLibs.py [[-h | --help, -b <branch> | --branch=<branch>, -m | --minimal]')
+    print('branch: Branch for dependencies (master is default)')
+    print('-m,--minimal: Build 64-bit PostgreSQL only')
     sys.stdout.flush()
     sys.exit(1)
 
 def main():
-    #by default we use master branch to update the source
-    branch = 'master'
+    depBranch = 'master'
     global MINIMAL
     try:
         opts, args = getopt.getopt(sys.argv[1:],"mhb:",['help','minimal','branch='])
@@ -268,18 +277,18 @@ def main():
         if o in ("-m","--minimal"):
             MINIMAL = True
         elif o in ("-b","--branch"):
-            branch = a
+            depBranch = a
         elif o in ("-h","--help"):
             usage()
             system.exit(2)
 
-    print('Updating source by %s branch.' % branch)
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
     if not os.path.exists(MSBUILD_PATH):
         print("MS_BUILD Does not exist")
         sys.stdout.flush()
-    pullAndBuildAllDependencies(branch)
+
+    pullAndBuildAllDependencies(depBranch)
     buildTSKAll()
 
 class OS:

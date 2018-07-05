@@ -110,7 +110,7 @@ static uint8_t
     ext2fs_group_load(EXT2FS_INFO * ext2fs, EXT2_GRPNUM_T grp_num)
 {
     TSK_FS_INFO *fs = (TSK_FS_INFO *) ext2fs;
-    int gd_size = tsk_getu16(fs->endian, ext2fs->fs->s_desc_size);
+    size_t gd_size = tsk_getu16(fs->endian, ext2fs->fs->s_desc_size);
 
     /*
     * Sanity check
@@ -135,7 +135,7 @@ static uint8_t
             TSK_OFF_T offs;
             ssize_t cnt;
 
-            if (gd_size < sizeof(ext4fs_gd))
+            if (gd_size < (int)sizeof(ext4fs_gd))
                 gd_size = sizeof(ext4fs_gd);
 
             if (ext2fs->ext4_grp_buf == NULL) {
@@ -149,7 +149,7 @@ static uint8_t
 #ifdef Ext4_DBG
             debug_print_buf((char *) ext2fs->ext4_grp_buf, gd_size);
 #endif
-            if (cnt != gd_size) {
+            if (cnt != (ssize_t) gd_size) {
                 if (cnt >= 0) {
                     tsk_error_reset();
                     tsk_error_set_errno(TSK_ERR_FS_READ);
@@ -180,7 +180,7 @@ static uint8_t
     else {
         TSK_OFF_T offs;
         ssize_t cnt;
-        if (gd_size < sizeof(ext2fs_gd))
+        if (gd_size < (int)sizeof(ext2fs_gd))
             gd_size = sizeof(ext2fs_gd);
 
         if (ext2fs->grp_buf == NULL) {
@@ -191,7 +191,7 @@ static uint8_t
 
         cnt = tsk_fs_read(&ext2fs->fs_info, offs, (char *) ext2fs->grp_buf, gd_size);
 
-        if (cnt != gd_size) {
+        if (cnt != (ssize_t) gd_size) {
             if (cnt >= 0) {
                 tsk_error_reset();
                 tsk_error_set_errno(TSK_ERR_FS_READ);
@@ -923,7 +923,7 @@ ext2fs_inode_walk(TSK_FS_INFO * fs, TSK_INUM_T start_inum,
     TSK_INUM_T end_inum_tmp;
     TSK_INUM_T ibase = 0;
     TSK_FS_FILE *fs_file;
-    int myflags;
+    unsigned int myflags;
     ext2fs_inode *dino_buf = NULL;
     unsigned int size = 0;
 
@@ -1842,8 +1842,8 @@ static uint8_t
 ext2fs_fsstat(TSK_FS_INFO * fs, FILE * hFile)
 {
     unsigned int i;
-    unsigned int gpfbg;
-    unsigned int gd_blocks;
+//    unsigned int gpfbg;
+//    unsigned int gd_blocks;
     EXT2FS_INFO *ext2fs = (EXT2FS_INFO *) fs;
     ext2fs_sb *sb = ext2fs->fs;
     int ibpg;
@@ -2095,7 +2095,7 @@ ext2fs_fsstat(TSK_FS_INFO * fs, FILE * hFile)
     if (fs->ftype == TSK_FS_TYPE_EXT4) {
         tsk_fprintf(hFile, "Block Groups Per Flex Group: %" PRIu32 "\n",
             (1 << sb->s_log_groups_per_flex));
-        gpfbg = (1 << sb->s_log_groups_per_flex);
+//        gpfbg = (1 << sb->s_log_groups_per_flex);
     }
 
     tsk_fprintf(hFile, "Block Range: %" PRIuDADDR " - %" PRIuDADDR "\n",
@@ -2134,9 +2134,9 @@ ext2fs_fsstat(TSK_FS_INFO * fs, FILE * hFile)
             sb->s_inodes_per_group) * ext2fs->inode_size + fs->block_size -
         1) / fs->block_size;
     /* number of blocks group descriptors consume */
-    gd_blocks =
-        (unsigned int)((gd_size * ext2fs->groups_count + fs->block_size -
-        1) / fs->block_size);
+//    gd_blocks =
+//        (unsigned int)((gd_size * ext2fs->groups_count + fs->block_size -
+//        1) / fs->block_size);
 
 #ifdef Ext4_DBG
     tsk_fprintf(hFile, "\n\tDEBUG: Group Descriptor Size: %d\n", gd_size);      //DEBUG

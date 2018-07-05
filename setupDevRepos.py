@@ -15,14 +15,16 @@ def setupLibrary(path):
     ''' sets up the library path variable '''
     git_repository_url = "https://github.com/sleuthkit/"
     git_zlib_repository_url="https://github.com/madler/"
-    gitClone(git_zlib_repository_url,"zlib",path["libewf_64bit"])
+    zlib_path = os.path.normpath(os.path.join(path["libewf_64bit"],"zlib"))
+    if not os.path.exists(zlib_path):
+        gitClone(git_zlib_repository_url,"zlib",path["libewf_64bit"])
     for library,base_library_path in path.items():
         library_path = os.path.normpath(os.path.join(base_library_path , library))
         if not os.path.exists(library_path):
             gitClone(git_repository_url, library, base_library_path)
 
 def gitClone(URL, repo, path):
-
+    # This method will clone the library if it does not exist
     cmd = ["git", "clone", URL + repo + ".git" ]
     ret = subprocess.call(cmd, stdout=sys.stdout, cwd=path)
     if ret != 0:
@@ -39,17 +41,18 @@ def main():
         base_Library_path["libewf_64bit"] = os.path.dirname(libewf_home)
     else:
         print('Please set the env variable LIBEWF_HOME')
+        sys.exit(1)
 
     if(libvhdi_home != None):
         base_Library_path["libvhdi_64bit"] = os.path.dirname(libvhdi_home)
     else:
         print('Please set the env variable LIBVHDI_HOME')
-
+        sys.exit(1)
     if(libvmdk_home != None):
         base_Library_path["libvmdk_64bit"] = os.path.dirname(os.path.dirname(libvmdk_home))
     else:
         print('Please set the env variable LIBVMDK_HOME')
-
+        sys.exit(1)
 
     setupLibrary(base_Library_path);
 
