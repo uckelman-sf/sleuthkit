@@ -214,45 +214,36 @@ raw_read_segment(IMG_RAW_INFO * raw_info, int idx, char *buf,
         if ((raw_info->is_winobj) && (offset_to_read + (TSK_OFF_T)len_to_read > raw_info->img_info.size ))
             len_to_read = (size_t)(raw_info->img_info.size - offset_to_read);
 
-        int retries;
-        int lastError = 0;
-        for (retries = 2; retries > 0; --retries) {
-            if (ReadFile(cimg->fd, *buf_pointer, (DWORD) len_to_read, &nread, NULL)) {
-                break;
-            }
-            lastError = GetLastError();
-            // ReadFile can fail with ERROR_NOT_READY if a volume device has been
-            // reformatted since it was opened.
-            // We should try to reopen the file and read again.
-            if (lastError == ERROR_NOT_READY && retries > 1) {
+        int readError = 1;
+        const int retries = 2;
+        for (int i = 0; i < retries && readError; ++i) {
+          if (FALSE == ReadFile(cimg->fd, *buf_pointer, (DWORD) len_to_read, &nread, NULL)) {
+              int lastError = GetLastError();
+              // ReadFile can fail with ERROR_NOT_READY if a volume device has been
+              // reformatted since it was opened.
+              // We should try to reopen the file and read again.
+              if (lastError == ERROR_NOT_READY && i + 1 < retries) {
                 if ((cimg = raw_open_segment(raw_info, raw_info->cptr[idx], idx)) == NULL) {
-                    return -1;
+                  return -1;
                 }
-            }
-            else {
-              if (sector_aligned_buf != NULL) {
-                  free(sector_aligned_buf);
               }
+              else {
+                if (sector_aligned_buf != NULL) {
+                  free(sector_aligned_buf);
+                }
 
-              tsk_error_reset();
-              tsk_error_set_errno(TSK_ERR_IMG_READ);
-              tsk_error_set_errstr("raw_read: file \"%" PRIttocTSK
-                  "\" offset: %" PRIdOFF " read len: %" PRIuSIZE " - %d",
-                  raw_info->img_info.images[idx], offset_to_read, len_to_read,
-                  lastError);
-              return -1;
-            }
-        }
-
-        if (retries == 0) {
-            // This should only happen in the case of programming error.
-            tsk_error_reset();
-            tsk_error_set_errno(TSK_ERR_IMG_READ);
-            tsk_error_set_errstr("raw_read: file \"%" PRIttocTSK
-                "\" offset: %" PRIdOFF " read len: %" PRIuSIZE " - %d",
-                raw_info->img_info.images[idx], rel_offset, len,
-                lastError);
-            return -1;
+                tsk_error_reset();
+                tsk_error_set_errno(TSK_ERR_IMG_READ);
+                tsk_error_set_errstr("raw_read: file \"%" PRIttocTSK
+                    "\" offset: %" PRIdOFF " read len: %" PRIuSIZE " - %d",
+                    raw_info->img_info.images[idx], offset_to_read, len_to_read,
+                    lastError);
+                return -1;
+              }
+          }
+          else {
+            readError = 0;
+          }
         }
  
         // When the read operation reaches the end of a file,
