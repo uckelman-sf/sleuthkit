@@ -215,11 +215,12 @@ raw_read_segment(IMG_RAW_INFO * raw_info, int idx, char *buf,
             len_to_read = (size_t)(raw_info->img_info.size - offset_to_read);
 
         int retries;
+        int lastError = 0;
         for (retries = 2; retries > 0; --retries) {
             if (ReadFile(cimg->fd, *buf_pointer, (DWORD) len_to_read, &nread, NULL)) {
                 break;
             }
-            int lastError = GetLastError();
+            lastError = GetLastError();
             // ReadFile can fail with ERROR_NOT_READY if a volume device has been
             // reformatted since it was opened.
             // We should try to reopen the file and read again.
