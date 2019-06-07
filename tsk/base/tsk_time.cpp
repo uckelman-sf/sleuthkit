@@ -5,8 +5,10 @@
 #include <date/date.h>
 #include <date/tz.h>
 
-std::tm* tsk_localtime(const std::time_t* tt) {
-#ifdef TSK_WIN32
+#include "tsk_base.h"
+
+struct tm* tsk_localtime(const time_t* tt) {
+#if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
   // should use tzset instead?
   // determine our local timezone
   const char* tzenv = std::getenv("TZ");
@@ -43,8 +45,8 @@ std::tm* tsk_localtime(const std::time_t* tt) {
 #endif
 }
 
-std::time_t tsk_mktime(std::tm* t) {
-#ifdef TSK_WIN32
+time_t tsk_mktime(struct tm* t) {
+#if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
   // determine our local timezone
   // should use tzset instead?
   const char* tzenv = std::getenv("TZ");
