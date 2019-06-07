@@ -161,7 +161,7 @@ tsk_fs_dir_contains(TSK_FS_DIR * a_fs_dir, TSK_INUM_T meta_addr, uint32_t hash)
         if (meta_addr == a_fs_dir->names[i].meta_addr) {
             if (hash == tsk_fs_dir_hash(a_fs_dir->names[i].name)) {
                 bestFound = a_fs_dir->names[i].flags;
-                // stop as soon as we get an alloc. 
+                // stop as soon as we get an alloc.
                 // if we get unalloc, keep going in case there
                 // is alloc later.
                 if (bestFound == TSK_FS_NAME_FLAG_ALLOC)
@@ -177,8 +177,8 @@ tsk_fs_dir_contains(TSK_FS_DIR * a_fs_dir, TSK_INUM_T meta_addr, uint32_t hash)
  * things around. Does not free the outer TSK_FS_NAME structure.  Just the names
  * inside of it.
  */
-static void 
-tsk_fs_dir_free_name_internal(TSK_FS_NAME *fs_name) 
+static void
+tsk_fs_dir_free_name_internal(TSK_FS_NAME *fs_name)
 {
     if (fs_name == NULL) {
         return;
@@ -214,7 +214,7 @@ tsk_fs_dir_add(TSK_FS_DIR * a_fs_dir, const TSK_FS_NAME * a_fs_name)
     /* see if we already have it in the buffer / queue
      * We skip this check for FAT because it will always fail because two entries
      * never have the same meta address. */
-    // @@@ We could do something more efficient here too with orphan files because we do not 
+    // @@@ We could do something more efficient here too with orphan files because we do not
     // need to check the contents of that directory either and this takes a lot of time on those
     // large images.
     if (TSK_FS_TYPE_ISFAT(a_fs_dir->fs_info->ftype) == 0) {
@@ -478,7 +478,7 @@ tsk_fs_dir_get(const TSK_FS_DIR * a_fs_dir, size_t a_idx)
         }
 
         // if the sequence numbers don't match, then don't load the meta
-        // should ideally have sequence in previous lookup, but it isn't 
+        // should ideally have sequence in previous lookup, but it isn't
         // in all APIs yet
         if ((fs_file->meta) && (fs_file->meta->seq != fs_name->meta_seq)) {
             tsk_fs_meta_close(fs_file->meta);
@@ -490,8 +490,8 @@ tsk_fs_dir_get(const TSK_FS_DIR * a_fs_dir, size_t a_idx)
 
 /** \ingroup fslib
  * Return only the name for a file or subdirectory from an open directory.
- * Useful when wanting to find files of a given name and you don't need the 
- * additional metadata. 
+ * Useful when wanting to find files of a given name and you don't need the
+ * additional metadata.
  *
  * @param a_fs_dir Directory to analyze
  * @param a_idx Index of file in directory to open (0-based)
@@ -513,7 +513,7 @@ tsk_fs_dir_get_name(const TSK_FS_DIR * a_fs_dir, size_t a_idx)
                              ") too large (%" PRIuSIZE ")", a_idx, a_fs_dir->names_used);
         return NULL;
     }
-    
+
     return &(a_fs_dir->names[a_idx]);
 }
 
@@ -769,8 +769,8 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
          * then save inum_named now to FS_INFO so that we can use
          * it for the orphan folder.  Otherwise, we do a full
          * inode walk again for nothing. */
-        if ((fs_file->name->meta_addr == TSK_FS_ORPHANDIR_INUM(a_fs)) && 
-            (i == fs_dir->names_used-1) && 
+        if ((fs_file->name->meta_addr == TSK_FS_ORPHANDIR_INUM(a_fs)) &&
+            (i == fs_dir->names_used-1) &&
             (a_dinfo->save_inum_named == 1)) {
             save_inum_named(a_fs, a_dinfo);
             a_dinfo->save_inum_named = 0;
@@ -826,7 +826,7 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                 if ((a_dinfo->depth >= MAX_DEPTH) ||
                     (DIR_STRSZ <=
                         strlen(a_dinfo->dirs) +
-                        strlen(fs_file->name->name))) {   
+                        strlen(fs_file->name->name))) {
                     if (tsk_verbose) {
                         tsk_fprintf(stdout,
                             "tsk_fs_dir_walk_recursive: directory : %"
@@ -863,21 +863,10 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                 retval = tsk_fs_dir_walk_recursive(a_fs,
                     a_dinfo, fs_file->name->meta_addr, a_flags,
                     a_action, a_ptr, macro_recursion_depth + 1);
-                if (retval == TSK_WALK_ERROR) {
-                    /* In most cases we want to continue if a directory 
-                     * did not load, but if we ran out
-                     * of memory we should stop */
-                    if (tsk_error_get_errno() & TSK_ERR_AUX) {
-                        tsk_fs_dir_close(fs_dir);
-                        fs_file->name = NULL;
-                        tsk_fs_file_close(fs_file);
-
-                        if (indexToOrderedIndex != NULL) {
-                            free(indexToOrderedIndex);
-                        }
-                        return TSK_WALK_ERROR;
-                    }
-
+                uint32_t lastErr = tsk_error_get_errno();
+                if (retval == TSK_WALK_ERROR && lastErr != TSK_ERR_IMG_GONE) {
+                    /* If this fails because the directory could not be
+                     * loaded, then we still continue */
                     if (tsk_verbose) {
                         tsk_fprintf(stderr,
                             "tsk_fs_dir_walk_recursive: error reading directory: %"
@@ -887,7 +876,7 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
 
                     tsk_error_reset();
                 }
-                else if (retval == TSK_WALK_STOP) {
+                else if (retval == TSK_WALK_STOP || lastErr == TSK_ERR_IMG_GONE) {
                     tsk_fs_dir_close(fs_dir);
                     fs_file->name = NULL;
                     tsk_fs_file_close(fs_file);
@@ -895,7 +884,7 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                     if (indexToOrderedIndex != NULL) {
                         free(indexToOrderedIndex);
                     }
-                    return TSK_WALK_STOP;
+                    return lastErr == TSK_ERR_IMG_GONE? TSK_WALK_ERROR: TSK_WALK_STOP;
                 }
 
                 // reset the save status
@@ -1108,7 +1097,7 @@ tsk_fs_dir_make_orphan_dir_meta(TSK_FS_INFO * a_fs,
 
 /** \internal
  * Searches the list of metadata addresses that are pointed to
- * by unallocated names.  Used to find orphan files. 
+ * by unallocated names.  Used to find orphan files.
  * @param a_fs File system being analyzed.
  * @param a_inum Metadata address to lookup in list.
  * @returns 1 if metadata address is pointed to by an unallocated
