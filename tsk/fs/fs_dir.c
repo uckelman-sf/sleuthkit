@@ -657,6 +657,10 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
     size_t i;
     int* indexToOrderedIndex = NULL;
 
+    // Make a note of the error if the recursive call fails
+    uint32_t last_errno = 0;
+    const char* last_errstr = NULL;
+
     // get the list of entries in the directory
     if ((fs_dir = tsk_fs_dir_open_meta_internal(a_fs, a_addr, macro_recursion_depth + 1)) == NULL) {
         return TSK_WALK_ERROR;
@@ -863,8 +867,8 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                 retval = tsk_fs_dir_walk_recursive(a_fs,
                     a_dinfo, fs_file->name->meta_addr, a_flags,
                     a_action, a_ptr, macro_recursion_depth + 1);
-                uint32_t lastErr = tsk_error_get_errno();
-                if (retval == TSK_WALK_ERROR && lastErr != TSK_ERR_IMG_GONE) {
+
+                if (retval == TSK_WALK_ERROR) {
                     /* If this fails because the directory could not be
                      * loaded, then we still continue */
                     if (tsk_verbose) {
@@ -874,9 +878,11 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                         tsk_error_print(stderr);
                     }
 
+                    last_errno = tsk_error_get_errno();
+                    last_errstr = tsk_error_get_errstr();
                     tsk_error_reset();
                 }
-                else if (retval == TSK_WALK_STOP || lastErr == TSK_ERR_IMG_GONE) {
+                else if (retval == TSK_WALK_STOP) {
                     tsk_fs_dir_close(fs_dir);
                     fs_file->name = NULL;
                     tsk_fs_file_close(fs_file);
@@ -884,7 +890,7 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
                     if (indexToOrderedIndex != NULL) {
                         free(indexToOrderedIndex);
                     }
-                    return lastErr == TSK_ERR_IMG_GONE? TSK_WALK_ERROR: TSK_WALK_STOP;
+                    return TSK_WALK_STOP;
                 }
 
                 // reset the save status
@@ -922,6 +928,12 @@ tsk_fs_dir_walk_recursive(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
 
     if (indexToOrderedIndex != NULL) {
         free(indexToOrderedIndex);
+    }
+
+    if (last_errno == TSK_ERR_IMG_GONE) {
+      tsk_error_set_errno(last_errno);
+      tsk_error_set_errstr(last_errstr);
+      return TSK_WALK_ERROR;
     }
     return TSK_WALK_CONT;
 }
