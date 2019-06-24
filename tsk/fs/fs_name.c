@@ -309,6 +309,8 @@ tsk_fs_time_to_str(time_t time, char buf[128])
         strncpy(buf, "0000-00-00 00:00:00 (UTC)", 128);
     }
     else {
+        tmTime = tsk_localtime(&time);
+
         snprintf(buf, 128, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d (%s)",
             (int) tmTime->tm_year + 1900,
             (int) tmTime->tm_mon + 1, (int) tmTime->tm_mday,
@@ -338,6 +340,8 @@ tsk_fs_time_to_str_subsecs(time_t time, unsigned int subsecs,
         strncpy(buf, "0000-00-00 00:00:00 (UTC)", 32);
     }
     else {
+        tmTime = tsk_localtime(&time);
+
         snprintf(buf, 64, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d.%.9d (%s)",
             (int) tmTime->tm_year + 1900,
             (int) tmTime->tm_mon + 1, (int) tmTime->tm_mday,
@@ -379,6 +383,8 @@ tsk_fs_print_day(FILE * hFile, time_t time)
         tsk_fprintf(hFile, "0000-00-00 00:00:00 (UTC)");
     }
     else {
+        tmTime = tsk_localtime(&time);
+
         tsk_fprintf(hFile, "%.4d-%.2d-%.2d 00:00:00 (%s)",
             (int) tmTime->tm_year + 1900,
             (int) tmTime->tm_mon + 1, (int) tmTime->tm_mday,
