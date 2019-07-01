@@ -5,7 +5,7 @@
 #include <date/date.h>
 #include <date/tz.h>
 
-#include "tsk_base.h"
+#include "tsk_base_i.h"
 
 struct tm* tsk_localtime(const time_t* tt) {
 #if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
