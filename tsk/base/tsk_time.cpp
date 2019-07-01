@@ -10,7 +10,6 @@
 
 struct tm* tsk_localtime(const time_t* tt) {
 #if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
-  // should use tzset instead?
   // determine our local timezone
   const char* tzenv = std::getenv("TZ");
   const auto tz = tzenv ? date::locate_zone(tzenv) : date::current_zone();
@@ -48,8 +47,11 @@ struct tm* tsk_localtime(const time_t* tt) {
 
 time_t tsk_mktime(struct tm* t) {
 #if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
+  // POSIX.1 8.1.1 requires that mktime() behave as though tzset() has been
+  // called; so we call tzset() to ensure that.
+  tzset();
+
   // determine our local timezone
-  // should use tzset instead?
   const char* tzenv = std::getenv("TZ");
   const auto tz = tzenv ? date::locate_zone(tzenv) : date::current_zone();
 
