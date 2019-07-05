@@ -201,6 +201,15 @@ AC_LANG_PUSH([C++])
 SAVED_LDFLAGS=$LDFLAGS
 SAVED_LIBS=$LIBS
 LIBS=-ltz
+
+case "$host" in
+*-*-mingw*)
+  LIBS="$LIBS -lole32"
+  ;;
+  *)
+  ;;
+esac
+
 AC_CHECK_HEADERS([date/tz.h],
   [AC_MSG_CHECKING([for date::current_zone in -ltz])
    AC_LINK_IFELSE(
@@ -208,7 +217,7 @@ AC_CHECK_HEADERS([date/tz.h],
       [#include <date/tz.h>],
       [const auto tz = date::current_zone();]
     )],
-    [SAVED_LIBS="$SAVED_LIBS -ltz"
+    [SAVED_LIBS="$SAVED_LIBS $LIBS"
      AC_DEFINE(HAVE_LIBTZ,1,[Define to 1 if you have the `tz' library (-ltz).])
      AC_MSG_RESULT([yes])
     ],
