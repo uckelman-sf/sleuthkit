@@ -247,12 +247,41 @@ int
         return 1;
     }
 
-    if (attempt_exec
+	if (attempt_exec("CREATE TABLE tsk_db_info_extended (name TEXT PRIMARY KEY, value TEXT NOT NULL);", "Error creating tsk_db_info_extended: %s\n")) {
+		return 1;
+	}
+
+	snprintf(foo, 1024, "INSERT INTO tsk_db_info_extended (name, value) VALUES ('TSK_VERSION', '%d');", TSK_VERSION_NUM);
+	if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
+		return 1;
+	}
+
+	snprintf(foo, 1024, "INSERT INTO tsk_db_info_extended (name, value) VALUES ('SCHEMA_MAJOR_VERSION', '%d');", TSK_SCHEMA_VER);
+	if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
+		return 1;
+	}
+
+	snprintf(foo, 1024, "INSERT INTO tsk_db_info_extended (name, value) VALUES ('SCHEMA_MINOR_VERSION', '%d');", TSK_SCHEMA_MINOR_VER);
+	if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
+		return 1;
+	}
+
+	snprintf(foo, 1024, "INSERT INTO tsk_db_info_extended (name, value) VALUES ('CREATED_SCHEMA_MAJOR_VERSION', '%d');", TSK_SCHEMA_VER);
+	if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
+		return 1;
+	}
+
+	snprintf(foo, 1024, "INSERT INTO tsk_db_info_extended (name, value) VALUES ('CREATED_SCHEMA_MINOR_VERSION', '%d');", TSK_SCHEMA_MINOR_VER);
+	if (attempt_exec(foo, "Error adding data to tsk_db_info table: %s\n")) {
+		return 1;
+	}
+
+	if (attempt_exec
         ("CREATE TABLE tsk_objects (obj_id INTEGER PRIMARY KEY, par_obj_id INTEGER, type INTEGER NOT NULL);",
         "Error creating tsk_objects table: %s\n")
         ||
         attempt_exec
-        ("CREATE TABLE tsk_image_info (obj_id INTEGER PRIMARY KEY, type INTEGER, ssize INTEGER, tzone TEXT, size INTEGER, md5 TEXT, display_name TEXT, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
+        ("CREATE TABLE tsk_image_info (obj_id INTEGER PRIMARY KEY, type INTEGER, ssize INTEGER, tzone TEXT, size INTEGER, md5 TEXT, sha1 TEXT, sha256 TEXT, display_name TEXT, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
         "Error creating tsk_image_info table: %s\n")
         ||
         attempt_exec
@@ -272,7 +301,7 @@ int
         "Error creating tsk_fs_info table: %s\n")
         ||
         attempt_exec
-        ("CREATE TABLE data_source_info (obj_id INTEGER PRIMARY KEY, device_id TEXT NOT NULL,  time_zone TEXT NOT NULL, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
+        ("CREATE TABLE data_source_info (obj_id INTEGER PRIMARY KEY, device_id TEXT NOT NULL,  time_zone TEXT NOT NULL, acquisition_details TEXT, FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id));",
         "Error creating data_source_info table: %s\n")
         ||
 		attempt_exec
@@ -298,16 +327,6 @@ int
         attempt_exec
         ("CREATE TABLE tag_names (tag_name_id INTEGER PRIMARY KEY, display_name TEXT UNIQUE, description TEXT NOT NULL, color TEXT NOT NULL, knownStatus INTEGER NOT NULL)",
         "Error creating tag_names table: %s\n")
-        ||
-        attempt_exec
-        ("CREATE TABLE content_tags (tag_id INTEGER PRIMARY KEY, obj_id INTEGER NOT NULL, tag_name_id INTEGER NOT NULL, comment TEXT NOT NULL, begin_byte_offset INTEGER NOT NULL, end_byte_offset INTEGER NOT NULL, "
-        "FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
-        "Error creating content_tags table: %s\n")
-        ||
-        attempt_exec
-        ("CREATE TABLE blackboard_artifact_tags (tag_id INTEGER PRIMARY KEY, artifact_id INTEGER NOT NULL, tag_name_id INTEGER NOT NULL, comment TEXT NOT NULL, "
-        "FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
-        "Error creating blackboard_artifact_tags table: %s\n")
         ||
 		attempt_exec("CREATE TABLE review_statuses (review_status_id INTEGER PRIMARY KEY, "
 		"review_status_name TEXT NOT NULL, "
@@ -372,10 +391,25 @@ int
 		||
 		attempt_exec
 		("CREATE TABLE accounts (account_id INTEGER PRIMARY KEY, account_type_id INTEGER NOT NULL, account_unique_identifier TEXT NOT NULL,  UNIQUE(account_type_id, account_unique_identifier) , FOREIGN KEY(account_type_id) REFERENCES account_types(account_type_id))",
-			"Error creating accounts table: %s\n") ||
+			"Error creating accounts table: %s\n") 
+		||
 		attempt_exec
 		("CREATE TABLE account_relationships (relationship_id INTEGER PRIMARY KEY, account1_id INTEGER NOT NULL, account2_id INTEGER NOT NULL, relationship_source_obj_id INTEGER NOT NULL,  date_time INTEGER, relationship_type INTEGER NOT NULL, data_source_obj_id INTEGER NOT NULL, UNIQUE(account1_id, account2_id, relationship_source_obj_id), FOREIGN KEY(account1_id) REFERENCES accounts(account_id), FOREIGN KEY(account2_id) REFERENCES accounts(account_id), FOREIGN KEY(relationship_source_obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(data_source_obj_id) REFERENCES tsk_objects(obj_id))",
-			"Error creating relationships table: %s\n") ) {
+			"Error creating relationships table: %s\n") 
+		||
+		attempt_exec
+		("CREATE TABLE tsk_examiners (examiner_id INTEGER PRIMARY KEY, login_name TEXT NOT NULL, display_name TEXT, UNIQUE(login_name))",
+					"Error creating tsk_examiners table: %s\n") 
+		||
+		attempt_exec
+		("CREATE TABLE content_tags (tag_id INTEGER PRIMARY KEY, obj_id INTEGER NOT NULL, tag_name_id INTEGER NOT NULL, comment TEXT NOT NULL, begin_byte_offset INTEGER NOT NULL, end_byte_offset INTEGER NOT NULL, examiner_id INTEGER, "
+			"FOREIGN KEY(examiner_id) REFERENCES tsk_examiners(examiner_id), FOREIGN KEY(obj_id) REFERENCES tsk_objects(obj_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
+			"Error creating content_tags table: %s\n")
+		||
+		attempt_exec
+		("CREATE TABLE blackboard_artifact_tags (tag_id INTEGER PRIMARY KEY, artifact_id INTEGER NOT NULL, tag_name_id INTEGER NOT NULL, comment TEXT NOT NULL, examiner_id INTEGER, "
+			"FOREIGN KEY(examiner_id) REFERENCES tsk_examiners(examiner_id), FOREIGN KEY(artifact_id) REFERENCES blackboard_artifacts(artifact_id), FOREIGN KEY(tag_name_id) REFERENCES tag_names(tag_name_id))",
+			"Error creating blackboard_artifact_tags table: %s\n")) {
         return 1;
     }
 
@@ -517,16 +551,16 @@ void
 int
     TskDbSqlite::addImageInfo(int type, int size, int64_t & objId, const string & timezone)
 {
-    return addImageInfo(type, size, objId, timezone, 0, "");
+    return addImageInfo(type, size, objId, timezone, 0, "", "", "");
 }
 
 /**
 * @returns 1 on error, 0 on success
 */
 int
-    TskDbSqlite::addImageInfo(int type, int ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5)
+    TskDbSqlite::addImageInfo(int type, int ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5, const string &sha1, const string &sha256)
 {
-    return addImageInfo(type, ssize, objId, timezone, size, md5, "");
+    return addImageInfo(type, ssize, objId, timezone, size, md5, sha1, sha256, "", "");
 }
 
 /**
@@ -541,7 +575,8 @@ int
  * @param deviceId An ASCII-printable identifier for the device associated with the data source that is intended to be unique across multiple cases (e.g., a UUID).
  * @returns 1 on error, 0 on success
  */
-int TskDbSqlite::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5, const string& deviceId)
+int TskDbSqlite::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5, 
+    const string& sha1, const string& sha256, const string& deviceId, const string& collectionDetails)
 {
 
     // Add the data source to the tsk_objects table.
@@ -557,8 +592,8 @@ int TskDbSqlite::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const 
 
     // Add the data source to the tsk_image_info table.
     char *sql;
-    sql = sqlite3_mprintf("INSERT INTO tsk_image_info (obj_id, type, ssize, tzone, size, md5) VALUES (%lld, %d, %lld, '%q', %" PRIuOFF ", '%q');",
-        objId, type, ssize, timezone.c_str(), size, md5.c_str());
+    sql = sqlite3_mprintf("INSERT INTO tsk_image_info (obj_id, type, ssize, tzone, size, md5, sha1, sha256) VALUES (%lld, %d, %lld, '%q', %" PRIuOFF ", '%q', '%q', '%q');",
+        objId, type, ssize, timezone.c_str(), size, md5.c_str(), sha1.c_str(), sha256.c_str());
     int ret = attempt_exec(sql, "Error adding data to tsk_image_info table: %s\n");
     sqlite3_free(sql);
     if (1 == ret) {
@@ -579,7 +614,7 @@ int TskDbSqlite::addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const 
 #else
     deviceIdStr << deviceId;
 #endif
-    sql = sqlite3_mprintf("INSERT INTO data_source_info (obj_id, device_id, time_zone) VALUES (%lld, '%s', '%s');", objId, deviceIdStr.str().c_str(), timezone.c_str());
+    sql = sqlite3_mprintf("INSERT INTO data_source_info (obj_id, device_id, time_zone, acquisition_details) VALUES (%lld, '%s', '%s', '%q');", objId, deviceIdStr.str().c_str(), timezone.c_str(), collectionDetails.c_str());
     ret = attempt_exec(sql, "Error adding data to tsk_image_info table: %s\n");
     sqlite3_free(sql);
     return ret;
@@ -603,7 +638,6 @@ int
     sqlite3_free(zSQL);
     return ret;
 }
-
 
 /**
 * @returns 1 on error, 0 on success
@@ -1203,7 +1237,7 @@ TSK_RETVAL_ENUM
     }
 
     zSQL = sqlite3_mprintf(
-        "INSERT INTO tsk_files (has_layout, fs_obj_id, obj_id, data_source_obj_id, type, attr_type, attr_id, name, meta_addr, meta_seq, dir_type, meta_type, dir_flags, meta_flags, size, crtime, ctime, atime, mtime, mode, gid, uid) "
+        "INSERT INTO tsk_files (has_layout, fs_obj_id, obj_id, data_source_obj_id, type, attr_type, attr_id, name, meta_addr, meta_seq, dir_type, meta_type, dir_flags, meta_flags, size, crtime, ctime, atime, mtime, mode, gid, uid, known) "
         "VALUES ("
         "1, %Q, %lld,"
         "%" PRId64 ","
@@ -1212,13 +1246,13 @@ TSK_RETVAL_ENUM
         "NULL,NULL,"
         "%d,%d,%d,%d,"
         "%" PRIuOFF ","
-        "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",
+        "NULL,NULL,NULL,NULL,NULL,NULL,NULL,%d)",
         fsObjIdStrPtr, objId,
         dataSourceObjId,
         dbFileType,
         fileName,
         TSK_FS_NAME_TYPE_REG, TSK_FS_META_TYPE_REG,
-        TSK_FS_NAME_FLAG_UNALLOC, TSK_FS_META_FLAG_UNALLOC, size);
+        TSK_FS_NAME_FLAG_UNALLOC, TSK_FS_META_FLAG_UNALLOC, size, TSK_DB_FILES_KNOWN_UNKNOWN);
 
     if (attempt_exec(zSQL, "TskDbSqlite::addLayoutFileInfo: Error adding data to tsk_files table: %s\n")) {
         sqlite3_free(zSQL);
@@ -1376,14 +1410,14 @@ TSK_RETVAL_ENUM TskDbSqlite::addVirtualDir(const int64_t fsObjId, const int64_t 
         "NULL,NULL,"
         "%d,%d,%d,%d,"
         "0,"
-        "NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'/')",
+        "NULL,NULL,NULL,NULL,NULL,NULL,NULL,%d,'/')",
         fsObjId,
         objId,
         dataSourceObjId,
         TSK_DB_FILES_TYPE_VIRTUAL_DIR,
         name,
         TSK_FS_NAME_TYPE_DIR, TSK_FS_META_TYPE_DIR,
-        TSK_FS_NAME_FLAG_ALLOC, (TSK_FS_META_FLAG_ALLOC | TSK_FS_META_FLAG_USED));
+        TSK_FS_NAME_FLAG_ALLOC, (TSK_FS_META_FLAG_ALLOC | TSK_FS_META_FLAG_USED), TSK_DB_FILES_KNOWN_UNKNOWN);
 
     if (attempt_exec(zSQL, "Error adding data to tsk_files table: %s\n")) {
         sqlite3_free(zSQL);

@@ -70,6 +70,10 @@ public class LayoutFile extends AbstractFile {
 	 *                           reported in the metadata structure of the file
 	 *                           system.
 	 * @param size               The size of the file.
+	 * @param ctime              The changed time of the file.
+	 * @param crtime             The creation time of the file.
+	 * @param atime              The accessed time of the file
+	 * @param mtime              The modified time of the file.
 	 * @param md5Hash            The MD5 hash of the file, null if not yet
 	 *                           calculated.
 	 * @param knownState         The known state of the file from a hash
@@ -86,9 +90,10 @@ public class LayoutFile extends AbstractFile {
 			TSK_FS_NAME_TYPE_ENUM dirType, TSK_FS_META_TYPE_ENUM metaType,
 			TSK_FS_NAME_FLAG_ENUM dirFlag, short metaFlags,
 			long size,
+			long ctime, long crtime, long atime, long mtime,
 			String md5Hash, FileKnown knownState,
 			String parentPath, String mimeType) {
-		super(db, objId, dataSourceObjectId, TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, 0, name, fileType, 0L, 0, dirType, metaType, dirFlag, metaFlags, size, 0L, 0L, 0L, 0L, (short) 0, 0, 0, md5Hash, knownState, parentPath, mimeType, SleuthkitCase.extractExtension(name));
+		super(db, objId, dataSourceObjectId, TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, 0, name, fileType, 0L, 0, dirType, metaType, dirFlag, metaFlags, size, ctime, crtime, atime, mtime, (short) 0, 0, 0, md5Hash, knownState, parentPath, mimeType, SleuthkitCase.extractExtension(name));
 	}
 
 	/**
@@ -140,6 +145,12 @@ public class LayoutFile extends AbstractFile {
 	protected int readInt(byte[] buf, long offset, long len) throws TskCoreException {
 		long offsetInThisLayoutContent = 0; // current offset in this LayoutContent
 		int bytesRead = 0; // Bytes read so far
+		
+		// if the caller has requested more data than we have in the file
+		// then make sure we don't go beyond the end of the file
+		long readLen = len;
+		if (offset + readLen > size) 
+			readLen = size - offset;
 
 		if (imageHandle == -1) {
 			Content dataSource = getDataSource();
@@ -152,17 +163,17 @@ public class LayoutFile extends AbstractFile {
 		}
 
 		for (TskFileRange range : getRanges()) {
-			if (bytesRead < len) { // we haven't read enough yet
+			if (bytesRead < readLen) { // we haven't read enough yet
 				if (offset < offsetInThisLayoutContent + range.getByteLen()) { // if we are in a range object we want to read from
 					long offsetInRange = 0; // how far into the current range object to start reading
 					if (bytesRead == 0) { // we haven't read anything yet so we want to read from the correct offset in this range object
 						offsetInRange = offset - offsetInThisLayoutContent; // start reading from the correct offset
 					}
 					long offsetInImage = range.getByteStart() + offsetInRange; // how far into the image to start reading
-					long lenToRead = Math.min(range.getByteLen() - offsetInRange, len - bytesRead); // how much we can read this time
-					int lenRead = readImgToOffset(imageHandle, buf, bytesRead, offsetInImage, (int) lenToRead);
+					long lenToReadInRange = Math.min(range.getByteLen() - offsetInRange, readLen - bytesRead); // how much we can read this time
+					int lenRead = readImgToOffset(imageHandle, buf, bytesRead, offsetInImage, (int) lenToReadInRange);
 					bytesRead += lenRead;
-					if (lenToRead != lenRead) { // If image read failed or was cut short
+					if (lenToReadInRange != lenRead) { // If image read failed or was cut short
 						break;
 					}
 				}
@@ -269,6 +280,6 @@ public class LayoutFile extends AbstractFile {
 			TSK_FS_NAME_TYPE_ENUM dirType, TSK_FS_META_TYPE_ENUM metaType,
 			TSK_FS_NAME_FLAG_ENUM dirFlag, short metaFlags,
 			long size, String md5Hash, FileKnown knownState, String parentPath) {
-		this(db, objId, db.getDataSourceObjectId(objId), name, fileType, dirType, metaType, dirFlag, metaFlags, size, md5Hash, knownState, parentPath, null);
+		this(db, objId, db.getDataSourceObjectId(objId), name, fileType, dirType, metaType, dirFlag, metaFlags, size, 0L, 0L, 0L, 0L, md5Hash, knownState, parentPath, null);
 	}
 }

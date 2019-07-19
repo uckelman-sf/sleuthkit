@@ -314,6 +314,8 @@ sub update_libver {
         print "Invalid response: $a (should be 1:2:3)\n";
     }
 
+    print "NOTE: To see what interfaces have changed, use 'git diff sleuthkit-4.6.6 '*.h' '";
+
     my $irem;
     while (1) {
         $irem = prompt_user("Have any interfaces been removed or changed? [y/n]");
@@ -409,6 +411,72 @@ sub update_buildxml {
 
     if ($found != 1) {
         die "Error: Found $found (instead of 1) occurrences of Version: in Java Build file";
+    }
+
+    unlink ($IFILE) or die "Error deleting $IFILE";
+    rename ($OFILE, $IFILE) or die "Error renaming $OFILE";
+}
+
+sub update_debian_changelog {
+
+    print "Updating the version in Debian changelog file\n";
+    
+    my $IFILE = "debian/changelog";
+    my $OFILE = "debian/changelog2";
+
+    open (CONF_IN, "<${IFILE}") or 
+        die "Cannot open $IFILE";
+    open (CONF_OUT, ">${OFILE}") or 
+        die "Cannot open $OFILE";
+
+    my $found = 0;
+    while (<CONF_IN>) {
+        if (/^sleuthkit-java /) {
+            print CONF_OUT "sleuthkit-java (${VER}-1) unstable; urgency=medium\n";
+            $found++;
+        }
+        else {
+            print CONF_OUT $_;
+        }
+    }
+    close (CONF_IN);
+    close (CONF_OUT);
+
+    if ($found != 1) {
+        die "Error: Found $found (instead of 1) occurrences of header in debian/changelog";
+    }
+
+    unlink ($IFILE) or die "Error deleting $IFILE";
+    rename ($OFILE, $IFILE) or die "Error renaming $OFILE";
+}
+
+sub update_debian_install {
+
+    print "Updating the version in Debian install file\n";
+    
+    my $IFILE = "debian/sleuthkit-java.install";
+    my $OFILE = "debian/sleuthkit-java.install2";
+
+    open (CONF_IN, "<${IFILE}") or 
+        die "Cannot open $IFILE";
+    open (CONF_OUT, ">${OFILE}") or 
+        die "Cannot open $OFILE";
+
+    my $found = 0;
+    while (<CONF_IN>) {
+        if (/^bindings\/java\/dist\/sleuthkit\-\d+\.\d+\.\d+\.jar \/usr\/share\/java/) {
+            print CONF_OUT "bindings/java/dist/sleuthkit-${VER}.jar /usr/share/java\n";
+            $found++;
+        }
+        else {
+            print CONF_OUT $_;
+        }
+    }
+    close (CONF_IN);
+    close (CONF_OUT);
+
+    if ($found != 1) {
+        die "Error: Found $found (instead of 1) occurrences of jar in debian/sleuthkit-java.install";
     }
 
     unlink ($IFILE) or die "Error deleting $IFILE";
@@ -611,6 +679,8 @@ update_hver();
 update_libver();
 update_pkgver();
 update_buildxml();
+update_debian_changelog();
+update_debian_install();
 
 bootstrap();
 checkin_vers();

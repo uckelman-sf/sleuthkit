@@ -1,6 +1,69 @@
 Numbers refer to SourceForge.net tracker IDs:
     http://sourceforge.net/tracker/?group_id=55685
 
+---------------- VERSION 4.6.6 --------------
+
+C/C++ Code:
+- Acquisition deteails are set in DB for E01 files
+- Fix NTFS decompression issue (from Joe Sylve)
+- Image reading fix when cache fails (Joe Sylve)
+- Fix HFS+ issue with large catalog files (Joe Sylve) 
+- Fix free memory issue in srch_strings (Derrick Karpo)
+
+Java:
+- Fix so that local files can be relative
+- More Blackboard artifacts and attributes for web data
+- Added methods to CaseDbManager to enable checking for and modifying tables.
+- APIs to get and set acquisition details
+- Added methods to add volume and file systems to database
+- Added method to add LayoutFile for allocated files
+- Changed handling of JNI handles to better support multiple cases
+
+
+---------------- VERSION 4.6.5 --------------
+C/C++ Code:
+- HFS boundary check fix
+- New fields for hash values and acquisition details in case database
+- Store "created schema version" in case database
+
+Java Code:
+- New artifacts and attributes defined
+- Fixed bug in SleuthkitCase.getContentById() for data sources
+- Fixed bug in LayoutFile.read() that could allow reading past end offile
+
+
+---------------- VERSION 4.6.4 --------------
+Java Code:
+- Increase max statements in database to prevent errors under load
+- Have a max timeout for SQLite retries
+
+---------------- VERSION 4.6.3 --------------
+C/C++ Code:
+- Hashdb bug fixes for corrupt indexes and 0 hashes
+- New code for testing power of number in ExtX code
+
+Java Code: 
+- New class that allows generic database access
+- New methods that check for duplicate artifacts
+- Added caches for frequently used content 
+
+Database Schema: 
+- Added Examiner table 
+- Tags are now associated with Examiners
+- Changed parent_path for logical files to be consistent with FS files.
+
+
+---------------- VERSION 4.6.2 --------------
+C/C++ Code:
+- Various compiler warning fixes
+- Added small delay into image writer to not starve other threads
+
+Java: 
+- Added more locking to ensure that handles were not closed while other threads were using them. 
+- Added APIs to support more queries by data source
+- Added memory-based caching when detecting if an object has children or not.
+
+
 ---------------- VERSION 4.6.1 --------------
 C/C++ Code:
 - Lots of bounds checking fixes from Google's fuzzing tests.  Thanks Google.
