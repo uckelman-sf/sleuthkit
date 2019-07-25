@@ -34,11 +34,14 @@
 // most of the local files need this, so we include it here
 #include <string.h>
 
+// needed for tsk_mktime, tsk_localtime
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    extern time_t tsk_mktime(struct tm* t);
+    extern struct tm* tsk_localtime(const time_t* timep);
 
     extern void tsk_init_lock(tsk_lock_t *);
     extern void tsk_deinit_lock(tsk_lock_t *);

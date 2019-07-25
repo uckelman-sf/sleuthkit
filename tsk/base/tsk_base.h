@@ -499,12 +499,6 @@ documentation and/or software.
 
 //@}
 
-#include <time.h>
-
-time_t tsk_mktime(struct tm* t);
-
-struct tm* tsk_localtime(const time_t* timep);
-
 #ifdef __cplusplus
 }
 #endif
