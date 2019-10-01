@@ -13,14 +13,15 @@ m4_include([m4/ac_prog_javac_works.m4])
 m4_include([m4/ac_prog_javac.m4])
 m4_include([m4/ac_prog_java_works.m4])
 m4_include([m4/ac_prog_java.m4])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
 
 AC_CONFIG_SRCDIR([tsk/base/tsk_base.h])
 AC_CONFIG_HEADERS([tsk/tsk_config.h])
 AC_CONFIG_AUX_DIR([config])
-AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects tar-ustar])
 AM_PROG_LIBTOOL
 AM_MAINTAINER_MODE
+AC_CONFIG_MACRO_DIR([m4])
 
 dnl Checks for programs.
 AC_PROG_CXX
@@ -73,6 +74,8 @@ AC_FUNC_VPRINTF
 dnl AC_CHECK_FUNCS([dup2 gethostname isascii iswprint memset munmap regcomp select setlocale strcasecmp strchr strdup strerror strndup strrchr strtol strtoul strtoull utime wcwidth])
 AC_CHECK_FUNCS([ishexnumber err errx warn warnx vasprintf getrusage])
 AC_CHECK_FUNCS([strlcpy strlcat])
+
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory])
 
 AX_PTHREAD([
     AC_DEFINE(HAVE_PTHREAD,1,[Define if you have POSIX threads libraries and header files.])
@@ -393,8 +396,11 @@ dnl Dependencies for fiwalk
 AC_CHECK_FUNCS([getline])
 AC_SEARCH_LIBS(regexec, [regex], , AC_MSG_ERROR([missing regex]))
 
-AC_SUBST(AM_CFLAGS, '')
-AC_SUBST(AM_CXXFLAGS, '')
+dnl Enable compliation warnings
+WARNINGS='-Wall -Wextra -Wno-unused-parameter'
+
+AC_SUBST(AM_CFLAGS, $WARNINGS)
+AC_SUBST(AM_CXXFLAGS, $WARNINGS)
 
 AC_CONFIG_FILES([
     Makefile
