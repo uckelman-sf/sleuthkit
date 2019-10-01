@@ -49,8 +49,8 @@ class TskDbPostgreSQL : public TskDb {
     TSK_RETVAL_ENUM setConnectionInfo(CaseDbConnectionInfo * info);
 
     int addImageInfo(int type, int size, int64_t & objId, const string & timezone);
-    int addImageInfo(int type, int size, int64_t & objId, const string & timezone, TSK_OFF_T, const string &md5);
-    int addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5, const string& deviceId);
+    int addImageInfo(int type, int size, int64_t & objId, const string & timezone, TSK_OFF_T, const string &md5, const string &sha1, const string &sha256);
+    int addImageInfo(int type, TSK_OFF_T ssize, int64_t & objId, const string & timezone, TSK_OFF_T size, const string &md5, const string &sha1, const string &sha256, const string& deviceId, const string& collectionDetails);
     int addImageName(int64_t objId, char const *imgName, int sequence);
     int addVsInfo(const TSK_VS_INFO * vs_info, int64_t parObjId,
         int64_t & objId);
@@ -130,6 +130,9 @@ private:
     TSK_RETVAL_ENUM addFileWithLayoutRange(const TSK_DB_FILES_TYPE_ENUM dbFileType, const int64_t parentObjId, const int64_t fsObjId,
         const uint64_t size, vector<TSK_DB_FILE_LAYOUT_RANGE> & ranges, int64_t & objId, int64_t dataSourceObjId);
     TSK_RETVAL_ENUM addLayoutFileInfo(const int64_t parObjId, const int64_t fsObjId, const TSK_DB_FILES_TYPE_ENUM dbFileType, const char *fileName, const uint64_t size, int64_t & objId, int64_t dataSourceObjId);
+
+    int addMACTimeEvents(char*& zSQL, const int64_t data_source_obj_id,
+                         const int64_t obj_id, std::map<int64_t, time_t> timeMap, const char* full_description);
 };
 
 #endif //HAVE_LIBPQ_

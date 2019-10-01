@@ -1,7 +1,7 @@
 /*
  * Sleuth Kit Data Model
  *
- * Copyright 2011-2017 Basis Technology Corp.
+ * Copyright 2011-2019 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,7 @@ public class BlackboardAttribute {
 
 	private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 	private static final Logger LOGGER = Logger.getLogger(BlackboardAttribute.class.getName());
-	
+
 	private static final ResourceBundle bundle = ResourceBundle.getBundle("org.sleuthkit.datamodel.Bundle");
 	private BlackboardAttribute.Type attributeType;
 	private final int valueInt;
@@ -254,7 +254,7 @@ public class BlackboardAttribute {
 		if (valueString == null) {
 			this.valueString = "";
 		} else {
-			this.valueString = replaceNulls(valueString);
+			this.valueString = replaceNulls(valueString).trim();
 		}
 		this.valueBytes = new byte[0];
 		this.context = "";
@@ -285,7 +285,7 @@ public class BlackboardAttribute {
 		if (valueString == null) {
 			this.valueString = "";
 		} else {
-			this.valueString = replaceNulls(valueString);
+			this.valueString = replaceNulls(valueString).trim();
 		}
 		this.valueBytes = new byte[0];
 		this.context = "";
@@ -523,16 +523,16 @@ public class BlackboardAttribute {
 				return Double.toString(getValueDouble());
 			case BYTE:
 				return bytesToHexString(getValueBytes());
-				
+
 			case DATETIME: {
 				try {
 					final Content dataSource = getParentArtifact().getDataSource();
-					if ((dataSource != null) && (dataSource instanceof Image )) {
+					if ((dataSource != null) && (dataSource instanceof Image)) {
 						// return the date/time string in the timezone associated with the datasource,
-						Image  image = (Image) dataSource;
+						Image image = (Image) dataSource;
 						TimeZone tzone = TimeZone.getTimeZone(image.getTimeZone());
 						return TimeUtilities.epochToTime(getValueLong(), tzone);
-					} 
+					}
 				} catch (TskException ex) {
 					LOGGER.log(Level.WARNING, "Could not get timezone for image", ex); //NON-NLS
 					// return time string in default timezone
@@ -575,7 +575,7 @@ public class BlackboardAttribute {
 		if (valueString == null) {
 			this.valueString = "";
 		} else {
-			this.valueString = replaceNulls(valueString);
+			this.valueString = replaceNulls(valueString).trim();
 		}
 		if (valueBytes == null) {
 			this.valueBytes = new byte[0];
@@ -1294,6 +1294,66 @@ public class BlackboardAttribute {
 				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
 		TSK_ID(124, "TSK_ID", //NON-NLS
 				bundle.getString("BlackboardAttribute.tskId.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_SSID(125, "TSK_SSID", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskSsid.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_BSSID(126, "TSK_BSSID", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskBssid.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_MAC_ADDRESS(127, "TSK_MAC_ADDRESS", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskMacAddress.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_IMEI(128, "TSK_IMEI", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskImei.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_IMSI(129, "TSK_IMSI", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskImsi.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_ICCID(130, "TSK_ICCID", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskIccid.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		TSK_THREAD_ID(131, "TSK_THREAD_ID",
+				bundle.getString("BlackboardAttribute.tskthreadid.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		/**
+		 * The event type of a TSK_TL_EVENT artifact. The value should be the id
+		 * of the EventType in the tsk_event_types table.
+		 */
+		TSK_TL_EVENT_TYPE(132, "TSK_TL_EVENT_TYPE", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskTLEventType.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG),
+		
+		TSK_DATETIME_DELETED(133, "TSK_DATETIME_DELETED", //NON-NLS
+				bundle.getString("BlackboardAttribute.tskdatetimedeleted.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME),
+		
+		TSK_DATETIME_PASSWORD_RESET(134, "TSK_DATETIME_PASSWORD_RESET",
+				bundle.getString("BlackboardAttribute.tskdatetimepwdreset.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME),
+				
+		TSK_DATETIME_PASSWORD_FAIL(135, "TSK_DATETIME_PWD_FAIL",
+				bundle.getString("BlackboardAttribute.tskdatetimepwdfail.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME),
+		
+		TSK_DISPLAY_NAME(136, "TSK_DISPLAY_NAME",
+				bundle.getString("BlackboardAttribute.tskdisplayname.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		
+		TSK_PASSWORD_SETTINGS(137, "TSK_PASSWORD_SETTINGS",
+				bundle.getString("BlackboardAttribute.tskpasswordsettings.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		
+		TSK_ACCOUNT_SETTINGS(138, "TSK_ACCOUNT_SETTINGS",
+				bundle.getString("BlackboardAttribute.tskaccountsettings.text"),
+				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		
+		TSK_PASSWORD_HINT(139, "TSK_PASSWORD_HINT", 
+			bundle.getString("BlackboardAttribute.tskpasswordhint.text"), 
+			TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING),
+		
+		TSK_GROUPS (140, "TSK_GROUPS", 
+				bundle.getString("BlackboardAttribute.tskgroups.text"),
 				TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING);
 
 		private final int typeID;

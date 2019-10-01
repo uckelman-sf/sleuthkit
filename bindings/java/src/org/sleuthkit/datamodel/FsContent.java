@@ -37,7 +37,7 @@ import org.sleuthkit.datamodel.TskData.TSK_FS_NAME_TYPE_ENUM;
  */
 public abstract class FsContent extends AbstractFile {
 
-	private static final Logger logger = Logger.getLogger(AbstractFile.class.getName());
+	private static final Logger logger = Logger.getLogger(FsContent.class.getName());
 	private String uniquePath;
 	private List<String> metaDataText = null;
 	private volatile FileSystem parentFileSystem;
@@ -176,7 +176,7 @@ public abstract class FsContent extends AbstractFile {
 		if (fileHandle == 0) {
 			synchronized (this) {
 				if (fileHandle == 0) {
-					fileHandle = SleuthkitJNI.openFile(getFileSystem().getFileSystemHandle(), metaAddr, attrType, attrId);
+					fileHandle = SleuthkitJNI.openFile(getFileSystem().getFileSystemHandle(), metaAddr, attrType, attrId, getSleuthkitCase());
 				}
 			}
 		}
@@ -206,7 +206,7 @@ public abstract class FsContent extends AbstractFile {
 	 */
 	@Override
 	@SuppressWarnings("deprecation")
-	protected int readInt(byte[] buf, long offset, long len) throws TskCoreException {
+	protected synchronized int readInt(byte[] buf, long offset, long len) throws TskCoreException {
 		if (offset == 0 && size == 0) {
 			//special case for 0-size file
 			return 0;
@@ -229,7 +229,7 @@ public abstract class FsContent extends AbstractFile {
 	/**
 	 * Gets the parent directory of this file or directory.
 	 *
-	 * @return The parent directory
+	 * @return The parent directory or null if there isn't one
 	 *
 	 * @throws TskCoreException if there was an error querying the case
 	 *                          database.
@@ -301,15 +301,10 @@ public abstract class FsContent extends AbstractFile {
 	 */
 	@Override
 	@SuppressWarnings("deprecation")
-	public void close() {
+	public synchronized void close() {
 		if (fileHandle != 0) {
-			synchronized (this) {
-				//need to recheck the handle after unlock
-				if (fileHandle != 0) {
-					SleuthkitJNI.closeFile(fileHandle);
-					fileHandle = 0;
-				}
-			}
+			SleuthkitJNI.closeFile(fileHandle);
+			fileHandle = 0;
 		}
 	}
 

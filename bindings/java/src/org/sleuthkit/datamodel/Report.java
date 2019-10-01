@@ -129,7 +129,9 @@ public class Report implements Content {
 		int totalBytesRead = 0;
 		ByteBuffer data = ByteBuffer.wrap(buf);
 		try {
-			fileChannel = FileChannel.open(pathAsPath, READ);
+			if (fileChannel == null) {
+				fileChannel = FileChannel.open(pathAsPath, READ);
+			}
 			fileChannel.position(offset);
 			int bytesRead = 0;
 			do {
@@ -211,12 +213,12 @@ public class Report implements Content {
 	public Content getParent() throws TskCoreException {
 		if (parent == null) {
 			SleuthkitCase.ObjectInfo parentInfo;
-			try {
-				parentInfo = db.getParentInfo(this);
-			} catch (TskCoreException ex) {
-				return null;
+			parentInfo = db.getParentInfo(this);
+			if (parentInfo == null) {
+				parent = null;
+			} else {
+				parent = db.getContentById(parentInfo.getId());
 			}
-			parent = db.getContentById(parentInfo.getId());
 		}
 		return parent;
 	}

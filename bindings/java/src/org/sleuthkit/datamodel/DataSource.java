@@ -39,6 +39,15 @@ public interface DataSource extends Content {
 	 * @return The time zone.
 	 */
 	String getTimeZone();
+	
+	/**
+	 * Set the name for this data source.
+	 * 
+	 * @param newName       The new name for the data source
+	 * 
+	 * @throws TskCoreException Thrown if an error occurs while updating the database
+	 */
+	void setDisplayName(String newName) throws TskCoreException;
 
 	/**
 	 * Gets the size of the contents of the data source in bytes. This size can
@@ -57,4 +66,21 @@ public interface DataSource extends Content {
 	 */
 	long getContentSize(SleuthkitCase sleuthkitCase) throws TskCoreException;
 
+	/**
+	 * Sets the acquisition details field in the case database.
+	 * 
+	 * @param details The acquisition details
+	 * 
+	 * @throws TskCoreException Thrown if the data can not be written
+	 */
+	void setAcquisitionDetails(String details) throws TskCoreException;
+	
+	/**
+	 * Gets the acquisition details field from the case database.
+	 * 
+	 * @return The acquisition details
+	 * 
+	 * @throws TskCoreException Thrown if the data can not be read
+	 */
+	String getAcquisitionDetails() throws TskCoreException;
 }

@@ -90,9 +90,7 @@ public abstract class AbstractContent implements Content {
 			return hasChildren;
 		}
 
-		childrenCount = this.getSleuthkitCase().getContentChildrenCount(this);
-
-		hasChildren = childrenCount > 0;
+		hasChildren = this.getSleuthkitCase().getHasChildren(this);
 		checkedHasChildren = true;
 
 		return hasChildren;
@@ -116,13 +114,12 @@ public abstract class AbstractContent implements Content {
 	public synchronized Content getParent() throws TskCoreException {
 		if (parent == null) {
 			ObjectInfo parentInfo;
-			try {
-				parentInfo = db.getParentInfo(this);
-			} catch (TskCoreException ex) {
-				// there is not parent; not an error if we've got a data source
-				return null;
+			parentInfo = db.getParentInfo(this);
+			if (parentInfo == null) {
+				parent = null;
+			} else {
+				parent = db.getContentById(parentInfo.getId());
 			}
-			parent = db.getContentById(parentInfo.getId());
 		}
 		return parent;
 	}

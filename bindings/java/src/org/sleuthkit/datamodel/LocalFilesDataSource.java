@@ -107,6 +107,18 @@ public class LocalFilesDataSource extends VirtualDirectory implements DataSource
 	public String getTimeZone() {
 		return timezone;
 	}
+	
+	/**
+	 * Set the name for this data source.
+	 * 
+	 * @param newName       The new name for the data source
+	 * 
+	 * @throws TskCoreException Thrown if an error occurs while updating the database
+	 */
+	@Override
+	public void setDisplayName(String newName) throws TskCoreException {
+		this.getSleuthkitCase().setFileName(newName, objectId);
+	}
 
 	/**
 	 * Gets the size of the contents of the data source in bytes. This size can
@@ -166,6 +178,30 @@ public class LocalFilesDataSource extends VirtualDirectory implements DataSource
 		}
 
 		return contentSize;
+	}
+	
+	/**
+	 * Sets the acquisition details field in the case database.
+	 * 
+	 * @param details The acquisition details
+	 * 
+	 * @throws TskCoreException Thrown if the data can not be written
+	 */
+	@Override
+	public void setAcquisitionDetails(String details) throws TskCoreException {
+		getSleuthkitCase().setAcquisitionDetails(this, details);
+	}
+	
+	/**
+	 * Gets the acquisition details field from the case database.
+	 * 
+	 * @return The acquisition details
+	 * 
+	 * @throws TskCoreException Thrown if the data can not be read
+	 */
+	@Override
+	public String getAcquisitionDetails() throws TskCoreException {
+		return getSleuthkitCase().getAcquisitionDetails(this);
 	}
 
 	/**

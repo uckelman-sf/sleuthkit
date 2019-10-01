@@ -1,5 +1,5 @@
 /*
- * Autopsy Forensic Browser
+ * Sleuth Kit Data Model
  * 
  * Copyright 2011-2017 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
@@ -93,7 +93,7 @@ public class FileSystem extends AbstractContent {
 					Content dataSource = getDataSource();
 					if ((dataSource != null) && (dataSource instanceof Image)) {
 						Image image = (Image) dataSource;
-						filesystemHandle = SleuthkitJNI.openFs(image.getImageHandle(), imgOffset);
+						filesystemHandle = SleuthkitJNI.openFs(image.getImageHandle(), imgOffset, getSleuthkitCase());
 					} else {
 						throw new TskCoreException("Data Source of File System is not an image");
 					}
@@ -184,7 +184,7 @@ public class FileSystem extends AbstractContent {
 	public void finalize() throws Throwable {
 		try {
 			if (filesystemHandle != 0) {
-				SleuthkitJNI.closeFs(filesystemHandle);
+				// SleuthkitJNI.closeFs(filesystemHandle); // closeFs is currently a no-op
 				filesystemHandle = 0;
 			}
 		} finally {

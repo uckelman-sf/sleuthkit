@@ -474,6 +474,8 @@ public abstract class AbstractFile extends AbstractContent {
 
 	/**
 	 * Sets the known state for this file.
+	 * Passed in value will be ignored if it is "less" than the current
+	 * state.  A NOTABLE file cannot be downgraded to KNOWN.
 	 *
 	 * IMPORTANT: The known state is set for this AbstractFile object, but it is
 	 * not saved to the case database until AbstractFile.save is called.
@@ -481,6 +483,12 @@ public abstract class AbstractFile extends AbstractContent {
 	 * @param knownState The known state of the file.
 	 */
 	public void setKnown(TskData.FileKnown knownState) {
+		// don't allow them to downgrade the known state
+		if (this.knownState.compareTo(knownState) > 0) {
+			// ideally we'd return some kind of error, but 
+			// the API doesn't allow it
+			return;
+		}
 		this.knownState = knownState;
 		this.knownStateDirty = true;
 	}
@@ -532,6 +540,9 @@ public abstract class AbstractFile extends AbstractContent {
 	 *
 	 * @throws TskCoreException if there was an error querying the case
 	 *                          database.
+	 * 
+	 * To obtain the data source as a DataSource object, use:
+	 * getSleuthkitCase().getDataSource(getDataSourceObjectId());
 	 */
 	@Override
 	public Content getDataSource() throws TskCoreException {
@@ -543,7 +554,7 @@ public abstract class AbstractFile extends AbstractContent {
 	 *
 	 * @return The object id of the data source.
 	 */
-	long getDataSourceObjectId() {
+	public long getDataSourceObjectId() {
 		return dataSourceObjectId;
 	}
 
@@ -807,6 +818,11 @@ public abstract class AbstractFile extends AbstractContent {
 		if (isDir()) {
 			return 0;
 		}
+		
+		// If the file is empty, just return that zero bytes were read.
+		if (getSize() == 0) {
+			return 0;
+		}
 
 		loadLocalFile();
 		if (!localFile.exists()) {
@@ -876,21 +892,30 @@ public abstract class AbstractFile extends AbstractContent {
 	 * read() will read the file in the local path.
 	 *
 	 * @param localPath  local path to be set
-	 * @param isAbsolute true if the path is absolute, false if relative to the
-	 *                   case db
 	 */
-	void setLocalFilePath(String localPath, boolean isAbsolute) {
+	void setLocalFilePath(String localPath) {
 
 		if (localPath == null || localPath.equals("")) {
 			this.localPath = "";
 			localAbsPath = null;
 			localPathSet = false;
 		} else {
+			// It should always be the case that absolute paths start with slashes or a windows drive letter
+			// and relative paths do not, but some older versions of modules created derived file paths
+			// starting with slashes. So we first check if this file is a DerivedFile before looking at the path.
 			this.localPath = localPath;
-			if (isAbsolute) {
-				this.localAbsPath = localPath;
+			if (this instanceof DerivedFile) {
+				// DerivedFiles always have relative paths
+				this.localAbsPath = getSleuthkitCase().getDbDirPath() + java.io.File.separator + localPath;
 			} else {
-				this.localAbsPath = getSleuthkitCase().getDbDirPath() + java.io.File.separator + this.localPath;
+				// If a path starts with a slash or with a Windows drive letter, then it is
+				// absolute. Otherwise it is relative.
+				if (localPath.startsWith("/") || localPath.startsWith("\\")
+						|| localPath.matches("[A-Za-z]:[/\\\\].*")) {
+					this.localAbsPath = localPath;
+				} else {
+					this.localAbsPath = getSleuthkitCase().getDbDirPath() + java.io.File.separator + localPath;
+				}
 			}
 			this.localPathSet = true;
 		}
@@ -1098,22 +1123,17 @@ public abstract class AbstractFile extends AbstractContent {
 
 		queryStr = "UPDATE tsk_files SET " + queryStr + " WHERE obj_id = " + this.getId();
 
-		SleuthkitCase.CaseDbConnection connection = getSleuthkitCase().getConnection();
-		Statement statement = null;
-
 		getSleuthkitCase().acquireSingleUserCaseWriteLock();
-		try {
-			statement = connection.createStatement();
-			connection.executeUpdate(statement, queryStr);
+		try (SleuthkitCase.CaseDbConnection connection = getSleuthkitCase().getConnection();
+				Statement statement = connection.createStatement();) {
 
+			connection.executeUpdate(statement, queryStr);
 			md5HashDirty = false;
 			mimeTypeDirty = false;
 			knownStateDirty = false;
 		} catch (SQLException ex) {
 			throw new TskCoreException(String.format("Error saving properties for file (obj_id = %s)", this.getId()), ex);
 		} finally {
-			closeStatement(statement);
-			connection.close();
 			getSleuthkitCase().releaseSingleUserCaseWriteLock();
 		}
 	}
@@ -1240,7 +1260,7 @@ public abstract class AbstractFile extends AbstractContent {
 	 */
 	@Deprecated
 	protected void setLocalPath(String localPath, boolean isAbsolute) {
-		setLocalFilePath(localPath, isAbsolute);
+		setLocalFilePath(localPath);
 	}
 
 	/*
