@@ -175,14 +175,14 @@ fatfs_dos_2_unix_time(uint16_t date, uint16_t time, uint8_t timetens)
     if ((tm1.tm_year < 0) || (tm1.tm_year > 137))
         tm1.tm_year = 0;
 
-    /* set the daylight savings variable to -1 so that mktime() figures
+    /* set the daylight savings variable to -1 so that tsk_mktime() figures
      * it out */
     tm1.tm_isdst = -1;
 
     if (ret < 0) {
         if (tsk_verbose)
             tsk_fprintf(stderr,
-                "fatfs_dos_2_unix_time: Error running mktime() on: %d:%d:%d %d/%d/%d\n",
+                "fatfs_dos_2_unix_time: Error running tsk_mktime() on: %d:%d:%d %d/%d/%d\n",
                 ((time & FATFS_HOUR_MASK) >> FATFS_HOUR_SHIFT),
                 ((time & FATFS_MIN_MASK) >> FATFS_MIN_SHIFT),
                 ((time & FATFS_SEC_MASK) >> FATFS_SEC_SHIFT) * 2,
