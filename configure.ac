@@ -437,8 +437,7 @@ AC_CONFIG_FILES([
     bindings/java/Makefile
     bindings/java/jni/Makefile
     unit_tests/Makefile
-    unit_tests/base/Makefile
-    unit_tests/img/Makefile])
+    unit_tests/base/Makefile])
 
 AC_OUTPUT
 
