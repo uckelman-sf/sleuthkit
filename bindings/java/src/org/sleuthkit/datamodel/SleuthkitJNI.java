@@ -248,7 +248,12 @@ public class SleuthkitJNI {
 			synchronized (cacheLock) {
 				// Remove from collection of open file handles.
 				if (skCase != null) {
-					getCaseHandles(skCase.getCaseHandle().caseDbPointer).fileHandleCache.remove(fileHandle);
+					try {
+						getCaseHandles(skCase.getCaseDbPointer()).fileHandleCache.remove(fileHandle);
+					} catch (TskCoreException ex) {
+						// This exception will only occur if a file handle is closed as the case is being closed.
+						// The file will be closed by the case closing code.
+					}
 				} else {
 					// If we don't know what case the handle is from, delete the first one we find
 					for (long caseDbPointer:caseHandlesCache.keySet()) {
@@ -355,6 +360,15 @@ public class SleuthkitJNI {
 		private CaseDbHandle(long caseDbPointer) {
 			this.caseDbPointer = caseDbPointer;
 			HandleCache.createCaseHandleCache(caseDbPointer);
+		}
+		
+		/**
+		 * Get the TSK pointer for the database
+		 * 
+		 * @return pointer to a TskCaseDb object
+		 */
+		long getCaseDbPointer() {
+			return caseDbPointer;
 		}
 
 		/**
@@ -728,7 +742,7 @@ public class SleuthkitJNI {
 		if (skCase == null) {
 			throw new TskCoreException("SleuthkitCase can not be null");
 		}
-		return openImage(imageFiles, 0, true, skCase.getCaseHandle().caseDbPointer);
+		return openImage(imageFiles, 0, true, skCase.getCaseDbPointer());
 	}
 
 	/**
@@ -748,7 +762,7 @@ public class SleuthkitJNI {
 		if (skCase == null) {
 			throw new TskCoreException("SleuthkitCase can not be null");
 		}
-		return openImage(imageFiles, sSize, true, skCase.getCaseHandle().caseDbPointer);
+		return openImage(imageFiles, sSize, true, skCase.getCaseDbPointer());
 	}
 	
 	/**
@@ -786,10 +800,18 @@ public class SleuthkitJNI {
 					nonNullCaseDbPointer = HandleCache.getDefaultCaseDbPointer();
 				}
 				
-				// If we're getting a fresh copy, remove any existing cache references
+				// If we're getting a fresh copy and an image with this path is already
+				// in the cache, move the existing cache reference so it won't be used by 
+				// any subsequent calls to openImage but will still be valid if any objects
+				// have it cached. This happens in the case where the user adds the same data
+				// source twice (see JIRA-5868).
 				if (!useCache && HandleCache.getCaseHandles(nonNullCaseDbPointer).imageHandleCache.containsKey(imageKey)) {
 					long tempImageHandle = HandleCache.getCaseHandles(nonNullCaseDbPointer).imageHandleCache.get(imageKey);
-					HandleCache.getCaseHandles(nonNullCaseDbPointer).fsHandleCache.remove(tempImageHandle);
+					
+					// Store the old image handle in a fake path. This way it will no longer be found but will
+					// still be valid and the image and its file systems will be closed with the case.
+					String newPath = "Image_" + UUID.randomUUID().toString();
+					HandleCache.getCaseHandles(nonNullCaseDbPointer).imageHandleCache.put(newPath, tempImageHandle);
 					HandleCache.getCaseHandles(nonNullCaseDbPointer).imageHandleCache.remove(imageKey);
 				}
 
@@ -799,7 +821,7 @@ public class SleuthkitJNI {
 				} else {
 					//open new handle and cache it
 					imageHandle = openImgNat(imageFiles, imageFiles.length, sSize);
-					HandleCache.getCaseHandles(nonNullCaseDbPointer).fsHandleCache.put(imageHandle, new HashMap<Long, Long>());
+					HandleCache.getCaseHandles(nonNullCaseDbPointer).fsHandleCache.put(imageHandle, new HashMap<>());
 					HandleCache.getCaseHandles(nonNullCaseDbPointer).imageHandleCache.put(imageKey, imageHandle);
 				}
 			}
@@ -878,7 +900,7 @@ public class SleuthkitJNI {
 				if (skCase == null) {
 					caseDbPointer = HandleCache.getDefaultCaseDbPointer();
 				} else {
-					caseDbPointer = skCase.getCaseHandle().caseDbPointer;
+					caseDbPointer = skCase.getCaseDbPointer();
 				}
 				
 				// If a pool handle cache for this image does not exist, make one
@@ -925,7 +947,7 @@ public class SleuthkitJNI {
 				if (skCase == null) {
 					caseDbPointer = HandleCache.getDefaultCaseDbPointer();
 				} else {
-					caseDbPointer = skCase.getCaseHandle().caseDbPointer;
+					caseDbPointer = skCase.getCaseDbPointer();
 				}
 				final Map<Long, Long> imgOffSetToFsHandle = HandleCache.getCaseHandles(caseDbPointer).fsHandleCache.get(imgHandle);
 				if (imgOffSetToFsHandle == null) {
@@ -976,7 +998,7 @@ public class SleuthkitJNI {
 				if (skCase == null) {
 					caseDbPointer = HandleCache.getDefaultCaseDbPointer();
 				} else {
-					caseDbPointer = skCase.getCaseHandle().caseDbPointer;
+					caseDbPointer = skCase.getCaseDbPointer();
 				}
 				final Map<Long, Long> imgOffSetToFsHandle = HandleCache.getCaseHandles(caseDbPointer).fsHandleCache.get(imgHandle);
 				if (imgOffSetToFsHandle == null) {
@@ -1033,7 +1055,7 @@ public class SleuthkitJNI {
 			if (skCase == null) {
 				caseDbPointer = HandleCache.getDefaultCaseDbPointer();
 			} else {
-				caseDbPointer = skCase.getCaseHandle().caseDbPointer;
+				caseDbPointer = skCase.getCaseDbPointer();
 			}
 			if (HandleCache.getCaseHandles(caseDbPointer).poolFsList.contains(fsHandle)) {
 				withinPool = true;
@@ -1057,7 +1079,7 @@ public class SleuthkitJNI {
 				if (skCase == null) {
 					caseDbPointer = HandleCache.getDefaultCaseDbPointer();
 				} else {
-					caseDbPointer = skCase.getCaseHandle().caseDbPointer;
+					caseDbPointer = skCase.getCaseDbPointer();
 				}
 				HandleCache.addFileHandle(caseDbPointer, fileHandle, fsHandle);
 

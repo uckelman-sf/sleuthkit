@@ -1966,6 +1966,26 @@ public class SleuthkitCase {
 						statement.execute("ALTER TABLE tsk_event_descriptions "
 							+ "RENAME COLUMN file_obj_id TO content_obj_id");
 						
+						// In 8.2 to 8.3 upgrade, the event_id & time column in tsk_events table was erroneously created as type INTEGER, instead of BIGINT
+						// Fix the schema, preserving any data if exists.
+						statement.execute("CREATE TABLE temp_tsk_events ( "
+								+ " event_id BIGSERIAL PRIMARY KEY, "
+								+ " event_type_id BIGINT NOT NULL REFERENCES tsk_event_types(event_type_id) ,"
+								+ " event_description_id BIGINT NOT NULL REFERENCES tsk_event_descriptions(event_description_id),"
+								+ " time BIGINT NOT NULL, "
+								+ " UNIQUE (event_type_id, event_description_id, time))"
+						);	
+					
+						// Copy the data
+						statement.execute("INSERT INTO temp_tsk_events(event_id, event_type_id, "
+								+ "event_description_id, time) SELECT * FROM tsk_events");
+					
+						// Drop the old table
+						statement.execute("DROP TABLE tsk_events");
+					
+						// Rename the new table
+						statement.execute("ALTER TABLE temp_tsk_events RENAME TO tsk_events");
+						
 						//create tsk_events indices that were skipped in the 8.2 to 8.3 update code
 						statement.execute("CREATE INDEX events_data_source_obj_id  ON tsk_event_descriptions(data_source_obj_id) ");
 						statement.execute("CREATE INDEX events_content_obj_id  ON tsk_event_descriptions(content_obj_id) ");
@@ -2908,6 +2928,42 @@ public class SleuthkitCase {
 			return count;
 		} catch (SQLException ex) {
 			throw new TskCoreException("Error getting number of blackboard artifacts by type", ex);
+		} finally {
+			closeResultSet(rs);
+			connection.close();
+			releaseSingleUserCaseReadLock();
+		}
+	}
+	
+	/**
+	 * Get a count of artifacts of a given type for the given data source. Does
+	 * not include rejected artifacts.
+	 *
+	 * @param artifactTypeID Id of the artifact type.
+	 * @param dataSourceID
+	 *
+	 * @return The artifacts count for the type.
+	 *
+	 * @throws TskCoreException
+	 */
+	public long getBlackboardArtifactsTypeCount(int artifactTypeID, long dataSourceID) throws TskCoreException {
+		CaseDbConnection connection = connections.getConnection();
+		acquireSingleUserCaseReadLock();
+		ResultSet rs = null;
+		try {
+			// SELECT COUNT(*) AS count FROM blackboard_artifacts WHERE artifact_type_id = ?
+			PreparedStatement statement = connection.getPreparedStatement(PREPARED_STATEMENT.COUNT_ARTIFACTS_OF_TYPE_BY_DATA_SOURCE);
+			statement.clearParameters();
+			statement.setInt(2, artifactTypeID);
+			statement.setLong(1, dataSourceID);
+			rs = connection.executeQuery(statement);
+			long count = 0;
+			if (rs.next()) {
+				count = rs.getLong("count");
+			}
+			return count;
+		} catch (SQLException ex) {
+			throw new TskCoreException(String.format("Error getting number of blackboard artifacts by type (%d) and data source (%d)", artifactTypeID, dataSourceID), ex);
 		} finally {
 			closeResultSet(rs);
 			connection.close();
@@ -5874,15 +5930,15 @@ public class SleuthkitCase {
 	}
 	
 	/**
-	 * Add a pool to the database
-	 *
+	 * Add a pool to the database.
+	 * 
 	 * @param parentObjId Object ID of the pool's parent
-     * @param type        Type of pool
+	 * @param type        Type of pool
 	 * @param transaction Case DB transaction
-	 *
+	 * 
 	 * @return the newly created Pool
-	 *
-	 * @throws TskCoreException
+	 * 
+	 * @throws TskCoreException 
 	 */
 	public Pool addPool(long parentObjId, TskData.TSK_POOL_TYPE_ENUM type, CaseDbTransaction transaction) throws TskCoreException {
 		acquireSingleUserCaseWriteLock();
@@ -5998,6 +6054,8 @@ public class SleuthkitCase {
 			long ctime, long crtime, long atime, long mtime,
 			boolean isFile, Content parent) throws TskCoreException {
 
+		TimelineManager timelineManager = getTimelineManager();
+
 		CaseDbTransaction transaction = beginTransaction();
 		Statement queryStatement = null;
 		try {
@@ -6049,6 +6107,11 @@ public class SleuthkitCase {
 			statement.setString(21, extension);
 
 			connection.executeUpdate(statement);
+
+            DerivedFile derivedFile = new DerivedFile(this, objectId, dataSourceObjId, fileName, dirType, metaType, dirFlag, metaFlags,
+					size, ctime, crtime, atime, mtime, null, null, parentPath, null, parent.getId(), null, null, extension);
+
+			timelineManager.addEventsForNewFile(derivedFile, connection);			
 
 			transaction.commit();
 			transaction = null;
@@ -8827,8 +8890,11 @@ public class SleuthkitCase {
 		return connections.getConnection();
 	}
 
-	SleuthkitJNI.CaseDbHandle getCaseHandle() {
-		return this.caseHandle;
+	synchronized long getCaseDbPointer() throws TskCoreException {
+		if (caseHandle != null) {
+			return caseHandle.getCaseDbPointer();
+		}
+		throw new TskCoreException("Case has been closed");
 	}
 
 	@Override
@@ -10644,6 +10710,7 @@ public class SleuthkitCase {
 		} catch (SQLException ex) {
 			throw new TskCoreException("Error querying reports table", ex);
 		} finally {
+			connection.close();
 			releaseSingleUserCaseWriteLock();
 		}
 	}
@@ -10925,6 +10992,7 @@ public class SleuthkitCase {
 		SELECT_ARTIFACTS_BY_TYPE("SELECT artifact_id, obj_id FROM blackboard_artifacts " //NON-NLS
 				+ "WHERE artifact_type_id = ?"), //NON-NLS
 		COUNT_ARTIFACTS_OF_TYPE("SELECT COUNT(*) AS count FROM blackboard_artifacts WHERE artifact_type_id = ? AND review_status_id != " + BlackboardArtifact.ReviewStatus.REJECTED.getID()), //NON-NLS
+		COUNT_ARTIFACTS_OF_TYPE_BY_DATA_SOURCE("SELECT COUNT(*) AS count FROM blackboard_artifacts WHERE data_source_obj_id = ? AND artifact_type_id = ? AND review_status_id != " + BlackboardArtifact.ReviewStatus.REJECTED.getID()), //NON-NLS
 		COUNT_ARTIFACTS_FROM_SOURCE("SELECT COUNT(*) AS count FROM blackboard_artifacts WHERE obj_id = ? AND review_status_id != " + BlackboardArtifact.ReviewStatus.REJECTED.getID()), //NON-NLS
 		COUNT_ARTIFACTS_BY_SOURCE_AND_TYPE("SELECT COUNT(*) AS count FROM blackboard_artifacts WHERE obj_id = ? AND artifact_type_id = ? AND review_status_id != " + BlackboardArtifact.ReviewStatus.REJECTED.getID()), //NON-NLS
 		SELECT_FILES_BY_PARENT("SELECT tsk_files.* " //NON-NLS
