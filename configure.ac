@@ -423,12 +423,13 @@ AC_MSG_NOTICE([
 Building:
    afflib support:                        $ax_afflib
    libewf support:                        $ax_libewf
-   zlib support:                          $ax_zlib
-
    libvhdi support:                       $ax_libvhdi
    libvmdk support:                       $ax_libvmdk
+
    postgresql support:                    $ax_libpq
+   zlib support:                          $ax_zlib
+
 Features:
    Java/JNI support:                      $ax_java_support
    Multithreading:                        $ax_multithread
-]);
+])
