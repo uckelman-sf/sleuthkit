@@ -88,7 +88,6 @@ AC_ARG_ENABLE([java],
 
 dnl Checks for libraries.
 
-
 dnl Some platforms will complain about missing included functions if libstdc++ is not included.
 AC_CHECK_LIB(stdc++, main, , AC_MSG_ERROR([missing libstdc++]))
 AC_CHECK_HEADERS(list, , , AC_MSG_ERROR([missing STL list class header]))
@@ -112,7 +111,7 @@ AS_IF([test "x$ac_cv_lib_sqlite3_sqlite3_open" = "xyes"],
 AM_CONDITIONAL([HAVE_LIBSQLITE3],
                [test "x$ac_cv_lib_sqlite3_sqlite3_open" = "xyes"])
 dnl check for postgresql	
-AC_CHECK_HEADERS([postgresql/libpq-fe.h],AC_CHECK_LIB([pq],[PQlibVersion]))      
+AC_CHECK_HEADERS([postgresql/libpq-fe.h],AC_CHECK_LIB([pq],[PQlibVersion]))
 AC_CHECK_HEADERS([libpq-fe.h],AC_CHECK_LIB([pq],[PQlibVersion]))
 AM_CONDITIONAL([HAVE_POSTGRESQL],[test "x$ac_cv_lib_pq_PQlibVersion" = "xyes"])
 AM_COND_IF([HAVE_POSTGRESQL],[ax_libpq=yes],[ax_libpq=no])
@@ -194,7 +193,6 @@ dnl needed for sqllite
 AC_CHECK_LIB(dl, dlopen)
 
 dnl check for user online input
-
 AC_ARG_ENABLE([offline],
     [ AS_HELP_STRING([--enable-offline],[Turn on offline mode])],
     [case "${enableval}" in
