@@ -9,10 +9,13 @@ if [ $Target = 'windows' ]; then
     for i in base img ; do
       ln -snf -t unit_tests/$i $(realpath -m $INSTALL/bin/*.dll tsk/.libs/libtsk-19.dll)
     done
-  else
-    # we don't have cppunit for 32-bit static Windows
-    CONF_FLAGS+=" --disable-cppunit"
   fi
+fi
+
+if [ $Linkage = 'static' ]; then
+  # we don't have cppunit for 32-bit static Windows
+  # we don't have cppunit for static Linux
+  CONF_FLAGS+=" --disable-cppunit"
 fi
 
 configure_it
