@@ -9,7 +9,7 @@
 #include "tsk_base_i.h"
 
 struct tm* tsk_localtime(const time_t* tt) {
-#if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
+#if defined(TSK_WIN32) && defined(HAVE_LIBDATE_TZ)
   // determine our local timezone
   const char* tzenv = std::getenv("TZ");
   const auto tz = tzenv ? date::locate_zone(tzenv) : date::current_zone();
@@ -46,7 +46,7 @@ struct tm* tsk_localtime(const time_t* tt) {
 }
 
 time_t tsk_mktime(struct tm* t) {
-#if defined(TSK_WIN32) && defined(HAVE_LIBTZ)
+#if defined(TSK_WIN32) && defined(HAVE_LIBDATE_TZ)
   // POSIX.1 8.1.1 requires that mktime() behave as though tzset() has been
   // called; so we call tzset() to ensure that.
   tzset();
