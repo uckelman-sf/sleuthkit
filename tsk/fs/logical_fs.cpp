@@ -1297,6 +1297,9 @@ logicalfs_read_block(TSK_FS_INFO *a_fs, TSK_FS_FILE *a_fs_file, TSK_DADDR_T a_bl
 		return -1;
 	}
 
+  return -1;
+
+/*
 	unsigned int block_size = a_fs->block_size;
 
 	// The caching used for logical file blocks is simpler than
@@ -1508,6 +1511,7 @@ logicalfs_read_block(TSK_FS_INFO *a_fs, TSK_FS_FILE *a_fs_file, TSK_DADDR_T a_bl
 #endif
 
 	return block_size;
+*/
 }
 
 /*
