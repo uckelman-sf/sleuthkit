@@ -5,17 +5,19 @@
 
 #include "tsk_base_i.h"
 
-struct tm* tsk_localtime(const time_t* tt) {
-#if defined(TSK_WIN32)
+const std::chrono::time_zone* get_tz() {
   // determine our local timezone
   const char* tzenv = std::getenv("TZ");
-  const auto tz = tzenv ? std::chrono::locate_zone(tzenv) : std::chrono::current_zone();
+  return tzenv ? std::chrono::locate_zone(tzenv) : std::chrono::current_zone();
+}
 
+struct tm* tsk_localtime(const time_t* tt) {
+#if defined(TSK_WIN32)
   // get a time_point from the time_t
   const auto tp = std::chrono::system_clock::from_time_t(*tt);
 
   // convert the time_point to the local timezone
-  const auto zt = std::chrono::zoned_time{tz, tp};
+  const auto zt = std::chrono::zoned_time{get_tz(), tp};
   const auto lt = zt.get_local_time();
 
   // localtime uses a static tm; we make it thread-safe
@@ -48,10 +50,6 @@ time_t tsk_mktime(struct tm* t) {
   // called; so we call tzset() to ensure that.
   tzset();
 
-  // determine our local timezone
-  const char* tzenv = std::getenv("TZ");
-  const auto tz = tzenv ? std::chrono::locate_zone(tzenv) : std::chrono::current_zone();
-
   // create a local time
   const auto date = std::chrono::year{t->tm_year + 1900} / (t->tm_mon + 1) / t->tm_mday;
 
@@ -62,7 +60,7 @@ time_t tsk_mktime(struct tm* t) {
     std::chrono::seconds{t->tm_sec};
 
   // attach a time zone to the local time
-  const auto zt = std::chrono::zoned_time{tz, lt};
+  const auto zt = std::chrono::zoned_time{get_tz(), lt};
   t->tm_isdst = zt.get_info().save != std::chrono::minutes(0);
 
   // convert the local time to system time
