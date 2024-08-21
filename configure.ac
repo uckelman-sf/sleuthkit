@@ -196,39 +196,6 @@ AM_COND_IF([CUSTOM_DEFAULT_JAR_LOCATION],
     [AC_SUBST([DEFAULT_JAR_LOCATION], [$default_jar_location])]
 )
 
-dnl check for libtz
-AC_LANG_PUSH([C++])
-SAVED_LDFLAGS=$LDFLAGS
-SAVED_LIBS=$LIBS
-LIBS=-ldate-tz
-
-case "$host" in
-*-*-mingw*)
-  LIBS="$LIBS -lole32"
-  ;;
-  *)
-  ;;
-esac
-
-AC_CHECK_HEADERS([date/tz.h],
-  [AC_MSG_CHECKING([for date::current_zone in -ldate-tz])
-   AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM(
-      [#include <date/tz.h>],
-      [const auto tz = date::current_zone();]
-    )],
-    [SAVED_LIBS="$SAVED_LIBS $LIBS"
-     PACKAGE_LIBS_PRIVATE="$PACKAGE_LIBS_PRIVATE $LIBS"
-     AC_DEFINE(HAVE_LIBDATE_TZ,1,[Define to 1 if you have the `date-tz' library (-ldate-tz).])
-     AC_MSG_RESULT([yes])
-    ],
-    [AC_MSG_RESULT([no])]
-  )]
-)
-LDFLAGS=$SAVED_LDFLAGS
-LIBS=$SAVED_LIBS
-AC_LANG_POP([C++])
-
 if test "x$enable_shared" != "xyes"; then
   CXXLD="$CXX -all-static"
 else
