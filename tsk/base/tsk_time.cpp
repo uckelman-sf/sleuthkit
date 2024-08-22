@@ -5,11 +5,13 @@
 
 #include "tsk_base_i.h"
 
+#if defined(TSK_WIN32)
 const std::chrono::time_zone* get_tz() {
   // determine our local timezone
   const char* tzenv = std::getenv("TZ");
   return tzenv ? std::chrono::locate_zone(tzenv) : std::chrono::current_zone();
 }
+#endif
 
 struct tm* tsk_localtime(const time_t* tt) {
 #if defined(TSK_WIN32)
