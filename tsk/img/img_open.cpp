@@ -16,6 +16,7 @@
 
 #include "tsk_img_i.h"
 
+#include "img_cache.h"
 #include "raw.h"
 #include "logical_img.h"
 
@@ -347,6 +348,7 @@ tsk_img_open(int num_img,
 
     /* we have a good img_info, set up the cache lock */
     tsk_init_lock(&(img_info->cache_lock));
+    img_cache_init(img_info);
     return img_info;
 }
 
@@ -449,6 +451,7 @@ tsk_img_open_utf8(int num_img,
 
         if (retval) {
             tsk_init_lock(&(retval->cache_lock));
+            img_cache_init(retval);
         }
         return retval;
     }
@@ -542,6 +545,7 @@ tsk_img_open_external(
     img_info->imgstat = imgstat;
 
     tsk_init_lock(&(img_info->cache_lock));
+    img_cache_init(img_info);
     return img_info;
 }
 
@@ -666,6 +670,7 @@ tsk_img_close(TSK_IMG_INFO * a_img_info)
         return;
     }
     tsk_deinit_lock(&(a_img_info->cache_lock));
+    img_cache_free(a_img_info);
     a_img_info->close(a_img_info);
 }
 

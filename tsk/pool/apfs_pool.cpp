@@ -13,6 +13,7 @@
 
 #include "../fs/tsk_apfs.hpp"
 #include "../fs/tsk_fs_i.h"
+#include "../img/img_cache.h"
 
 #include <stdexcept>
 
@@ -148,8 +149,6 @@ void APFSPool::clear_cache() noexcept {
 
   tsk_take_lock(&(_img->cache_lock));
 
-  // Setting the lengths to zero should invalidate the cache.
-  memset(_img->cache_len, 0, sizeof(_img->cache_len));
-
+  img_cache_free(_img);
   tsk_release_lock(&(_img->cache_lock));
 }
