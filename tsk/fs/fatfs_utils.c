@@ -179,6 +179,8 @@ fatfs_dos_2_unix_time(uint16_t date, uint16_t time, uint8_t timetens)
      * it out */
     tm1.tm_isdst = -1;
 
+    ret = tsk_mktime(&tm1);
+
     if (ret < 0) {
         if (tsk_verbose)
             tsk_fprintf(stderr,
