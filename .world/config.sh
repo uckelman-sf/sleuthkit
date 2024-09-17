@@ -15,10 +15,4 @@ if [ $Target = 'windows' ]; then
   fi
 fi
 
-if [ $Linkage = 'static' ]; then
-  # we don't have cppunit for 32-bit static Windows
-  # we don't have cppunit for static Linux
-  CONF_FLAGS+=" --disable-cppunit"
-fi
-
 configure_it
