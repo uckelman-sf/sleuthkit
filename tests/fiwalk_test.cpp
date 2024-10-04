@@ -10,6 +10,7 @@
 
 #include "catch.hpp"
 
+#include <algorithm>
 #include <string>
 
 #include "tools/fiwalk/src/fiwalk.h"
@@ -29,6 +30,12 @@ void check_image(std::string img_path, std::string dfxml2_path) {
     }
     CAPTURE(img_path);
     INFO("test: fiwalk " << img_path)
+
+#ifdef TSK_WIN32
+    // Windows wants backslashes in paths
+    std::replace(img_path.begin(), img_path.end(), '/', '\\');
+    std::replace(dfxml2_path.begin(), dfxml2_path.end(), '/', '\\');
+#endif
 
     /* the output XML file should be the XML file with a 2 added.
      * If there is no XML file, then add ".xml2" to the image file.

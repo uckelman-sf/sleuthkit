@@ -205,7 +205,14 @@ public:
 
     json.arr();
     for (auto i = 0; i < img->num_img; ++i) {
+#ifdef TSK_WIN32
+      // Windows wants backslashes in paths
+      std::wstring img_path = img->images[i];
+      std::replace(img_path.begin(), img_path.end(), '\\', '/');
+      json.v(img_path.c_str());
+#else
       json.v(img->images[i]);
+#endif
     }
     json.end();
 
@@ -458,12 +465,19 @@ private:
 
 int main(int argc, char** argv) {
   // Usage: img_dump IMAGE_PATH
-  if (argc < 2) {
+  if (argc != 2) {
     return 1;
   }
 
+#ifdef TSK_WIN32
+  // Convert Windows path backslashes to slashes
+  std::string img_path = argv[1];
+  std::replace(img_path.begin(), img_path.end(), '/', '\\');
+  argv[1] = &img_path[0];
+#endif
+
   std::unique_ptr<TSK_IMG_INFO, void(*)(TSK_IMG_INFO*)> img{
-    tsk_img_open_utf8(argc - 1, argv + 1, TSK_IMG_TYPE_DETECT, 0),
+    tsk_img_open_utf8(1, argv + 1, TSK_IMG_TYPE_DETECT, 0),
     tsk_img_close
   };
 
