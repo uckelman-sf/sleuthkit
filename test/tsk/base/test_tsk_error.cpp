@@ -28,9 +28,9 @@ extern "C" mach_port_t mach_task_self(void);
 
 TEST_CASE("void ErrorsTest::testInitialState()","[errors]") {
 	TSK_ERROR_INFO *ei = tsk_error_get_info();
-	REQUIRE(0 == ei->t_errno);
-	REQUIRE(0 == ei->errstr[0]);
-	REQUIRE(0 == ei->errstr2[0]);
+	REQUIRE(!ei->t_errno);
+	REQUIRE(!ei->errstr[0]);
+	REQUIRE(!ei->errstr2[0]);
 }
 
 TEST_CASE("void ErrorsTest::testLengthChecks()","[errors]") {
